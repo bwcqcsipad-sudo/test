@@ -4,7 +4,6 @@
   <base target="_top">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta charset="UTF-8">
-  <title>อ้อมเงินกู้</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
@@ -373,28 +372,29 @@
     <div id="toastInner" class="px-4 py-3 rounded-2xl shadow-2xl text-sm font-bold"></div>
   </div>
 
-  <script>
-    const BASEROW_BASE_URL = 'https://api.baserow.io';
+  
+<script>
     const BASEROW_TOKEN = 'viEsOBD2SCZ8oOIbehQSPnIZeQUzsRnT';
     const TABLE_ID = 1836713;
+    const BASE_URL = 'https://api.baserow.io';
 
-    const FIELD = {
-      TYPE: 'ต้องการ',
-      TIMESTAMP: 'วันที่ทำรายการ',
-      NAME: 'ชื่อ',
-      PHONE: 'เบอร์โทร',
-      AMOUNT: 'จำนวนเงิน',
-      DUE_DATE: 'วันที่กำหนดชำระ',
-      INSTALLMENT_TYPE: 'ผ่อน',
-      INSTALLMENTS: 'จำนวนงวด',
-      INSTALLMENT_AMOUNT: 'ต่อ งวด',
-      RECEIVE_METHOD: 'วิธีรับเงิน',
-      ATTACHMENT: 'เอกสาร',
-      INTEREST: 'ดอกเบี้ย',
-      STATUS: 'สถานะ',
-      DOCNO: 'เลขที่เอกสาร',
-      NOTE: 'หมายเหตุ',
-      VERIFY: 'ตรวจความถูกต้อง'
+    const FIELD_MAP = {
+      type: 'Type',
+      timestamp: 'Timestamp',
+      name: 'Name',
+      phone: 'Phone',
+      amount: 'Amount',
+      dueDate: 'DueDate',
+      installmentType: 'InstallmentType',
+      installments: 'Installments',
+      installmentAmount: 'InstallmentAmount',
+      receiveMethod: 'ReceiveMethod',
+      attachment: 'AttachmentUrl',
+      interest: 'Interest',
+      status: 'Status',
+      docNo: 'DocNo',
+      note: 'Note',
+      verificationStatus: 'Verify'
     };
 
     const state = {
@@ -425,24 +425,22 @@
       cacheEls();
       bindEvents();
       applyView();
-      syncBorrowReceiveMethodUI();
-      syncBorrowInstallmentUI();
       loadData();
       lucide.createIcons();
     }
 
     function cacheEls() {
-      [
-        'backBtn','homeView','borrowView','payView','goBorrowBtn','goPayBtn',
-        'borrowForm','borrowDocNo','borrowName','borrowPhone','borrowDueDate','borrowAmount','borrowInterest',
-        'installmentToggle','installmentKnob','installmentBadge','installmentWrap','borrowInstallments','installmentPreview','installmentAmountText',
-        'receiveTransfer','receiveCash','borrowNote','borrowSubmitBtn',
-        'recordCount','recordList','emptyState',
-        'paymentModal','paymentClose','paymentBorrowName','paymentDocNo','paymentStatus','paymentAmountDue','paymentInstallment','paymentInstallmentWrap',
-        'paymentNote','paymentAttachment','paymentAttachmentName','paymentConfirm','payAllToggle','payMethodTransfer','payMethodCash','unpaidHint',
-        'authModal','authPassword','authSubmit','authCancel',
-        'toast','toastInner'
-      ].forEach(id => els[id] = $(id));
+        [
+  'backBtn','homeView','borrowView','payView','goBorrowBtn','goPayBtn',
+  'borrowForm','borrowDocNo','borrowName','borrowPhone','borrowDueDate','borrowAmount','borrowInterest',
+  'installmentToggle','installmentKnob','installmentBadge','installmentWrap','borrowInstallments','installmentPreview','installmentAmountText',
+  'receiveTransfer','receiveCash','borrowNote','borrowSubmitBtn',
+  'recordCount','recordList','emptyState',
+  'paymentModal','paymentClose','paymentBorrowName','paymentDocNo','paymentStatus','paymentAmountDue','paymentInstallment','paymentInstallmentWrap',
+  'paymentNote','paymentAttachment','paymentAttachmentName','paymentConfirm','payAllToggle','payMethodTransfer','payMethodCash','unpaidHint',
+  'authModal','authPassword','authSubmit','authCancel',
+  'toast','toastInner'
+].forEach(id => els[id] = $(id));
     }
 
     function bindEvents() {
@@ -490,15 +488,6 @@
           closeAuthModal();
         }
       });
-
-      document.addEventListener('input', (e) => {
-        if (e.target === els.paymentInstallment) syncPaymentModalUI();
-        if (e.target === els.borrowAmount || e.target === els.borrowInterest || e.target === els.borrowInstallments) updateBorrowPreview();
-      });
-
-      document.addEventListener('change', (e) => {
-        if (e.target === els.payAllToggle) syncPaymentModalUI();
-      });
     }
 
     function setView(view) {
@@ -518,11 +507,6 @@
 
     function setBorrowReceiveMethod(method) {
       state.borrow.receiveMethod = method;
-      syncBorrowReceiveMethodUI();
-    }
-
-    function syncBorrowReceiveMethodUI() {
-      const method = state.borrow.receiveMethod;
       els.receiveTransfer.className = method === 'โอน'
         ? 'flex-1 py-4 rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 border-2 bg-slate-900 text-white border-slate-900 shadow-xl'
         : 'flex-1 py-4 rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 border-2 bg-white text-slate-400 border-slate-200 hover:border-indigo-200';
@@ -574,9 +558,9 @@
     async function loadData() {
       try {
         showToast('กำลังโหลดข้อมูล...', 'info', 1200);
-        const rows = await baserowListRows();
-        state.records = buildRecordsFromRows(rows);
-        state.nextDocNo = generateNextDocNo(rows);
+        const data = await getAppData();
+        state.records = data.records || [];
+        state.nextDocNo = data.nextDocNo || 'A001';
         updateBorrowPreview();
         renderRecords();
         showToast('โหลดข้อมูลเรียบร้อย', 'success', 1200);
@@ -587,166 +571,172 @@
     }
 
     function renderRecords() {
-      const records = state.records || [];
-      els.recordCount.textContent = `${records.length} รายการ`;
+  const records = state.records || [];
+  els.recordCount.textContent = `${records.length} รายการ`;
 
-      if (!records.length) {
-        els.emptyState.classList.remove('hidden');
-        els.recordList.innerHTML = '';
-        return;
-      }
+  if (!records.length) {
+    els.emptyState.classList.remove('hidden');
+    els.recordList.innerHTML = '';
+    return;
+  }
 
-      els.emptyState.classList.add('hidden');
+  els.emptyState.classList.add('hidden');
 
-      els.recordList.innerHTML = records.map(record => {
-        const paidCount = Object.values(record.paymentStatus || {}).filter(s => s.status === 'ชำระแล้ว').length;
-        const totalInst = Number(record.totalInstallments || record.installments || 1);
-        const isFullyPaid = paidCount >= totalInst;
-        const totalDebt = Number(record.totalDebt || ((record.amount || 0) + (record.interest || 0)));
-        const verificationStatus = String(record.verificationStatus || 'รอตรวจสอบ').trim();
+  els.recordList.innerHTML = records.map(record => {
+    const paidCount = Object.values(record.paymentStatus || {}).filter(s => s.status === 'ชำระแล้ว').length;
+    const totalInst = Number(record.totalInstallments || record.installments || 1);
+    const isFullyPaid = paidCount >= totalInst;
+    const totalDebt = Number(record.totalDebt || ((record.amount || 0) + (record.interest || 0)));
+    const verificationStatus = String(record.verificationStatus || 'รอตรวจสอบ').trim();
 
-        const paymentGroups = Array.isArray(record.paymentGroups) ? record.paymentGroups : [];
-        const noteText = String(record.note || '').trim();
+    const paymentGroups = Array.isArray(record.paymentGroups) ? record.paymentGroups : [];
+    const noteText = String(record.note || '').trim();
 
-        return `
-          <div class="bg-white border-2 border-slate-100 rounded-[2rem] p-5 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
-            <div class="absolute left-0 top-0 bottom-0 w-2 ${isFullyPaid ? 'bg-emerald-500' : 'bg-indigo-600'}"></div>
+    return `
+      <div class="bg-white border-2 border-slate-100 rounded-[2rem] p-5 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+        <div class="absolute left-0 top-0 bottom-0 w-2 ${isFullyPaid ? 'bg-emerald-500' : 'bg-indigo-600'}"></div>
 
-            <div class="flex justify-between items-start mb-4 pl-1">
-              <div class="space-y-1">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg uppercase tracking-wider border border-indigo-100">#${escapeHtml(record.docNo || '')}</span>
-                  <div class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase border ${isFullyPaid ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'}">
-                    <i data-lucide="${isFullyPaid ? 'check-circle-2' : 'clock-3'}" class="w-2.5 h-2.5"></i>
-                    ${isFullyPaid ? 'ชำระครบแล้ว' : `ค้างชำระ (${paidCount}/${totalInst})`}
-                  </div>
-                </div>
-                <h4 class="font-black text-slate-800 text-lg leading-tight">${escapeHtml(record.name || '')}</h4>
-                <p class="text-xs text-slate-400 font-medium">${escapeHtml(record.phone || '')}</p>
-              </div>
-              <div class="text-right">
-                <p class="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-0.5">TOTAL DEBT</p>
-                <p class="font-black text-2xl text-slate-900 leading-none">${formatCurrency(totalDebt)}</p>
+        <div class="flex justify-between items-start mb-4 pl-1">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg uppercase tracking-wider border border-indigo-100">#${escapeHtml(record.docNo || '')}</span>
+              <div class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase border ${isFullyPaid ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'}">
+                <i data-lucide="${isFullyPaid ? 'check-circle-2' : 'clock-3'}" class="w-2.5 h-2.5"></i>
+                ${isFullyPaid ? 'ชำระครบแล้ว' : `ค้างชำระ (${paidCount}/${totalInst})`}
               </div>
             </div>
+            <h4 class="font-black text-slate-800 text-lg leading-tight">${escapeHtml(record.name || '')}</h4>
+            <p class="text-xs text-slate-400 font-medium">${escapeHtml(record.phone || '')}</p>
+          </div>
+          <div class="text-right">
+            <p class="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-0.5">TOTAL DEBT</p>
+            <p class="font-black text-2xl text-slate-900 leading-none">${formatCurrency(totalDebt)}</p>
+          </div>
+        </div>
 
-            <div class="grid grid-cols-2 gap-3 text-xs text-slate-500 mb-4">
-              <div class="bg-slate-50 rounded-2xl p-3">
-                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">กำหนดชำระ</p>
-                <p class="font-bold text-slate-700">${escapeHtml(record.dueDate || '-')}</p>
-              </div>
-              <div class="bg-slate-50 rounded-2xl p-3">
-                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">วิธีรับเงิน</p>
-                <p class="font-bold text-slate-700">${escapeHtml(record.receiveMethod || '-')}</p>
-              </div>
-            </div>
+        <div class="grid grid-cols-2 gap-3 text-xs text-slate-500 mb-4">
+          <div class="bg-slate-50 rounded-2xl p-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">กำหนดชำระ</p>
+            <p class="font-bold text-slate-700">${escapeHtml(record.dueDate || '-')}</p>
+          </div>
+          <div class="bg-slate-50 rounded-2xl p-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">วิธีรับเงิน</p>
+            <p class="font-bold text-slate-700">${escapeHtml(record.receiveMethod || '-')}</p>
+          </div>
+        </div>
 
-            ${noteText ? `
-              <div class="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">หมายเหตุ</p>
-                <p class="text-sm font-bold text-slate-700 leading-relaxed">${escapeHtml(noteText)}</p>
-              </div>
-            ` : ''}
+        ${noteText ? `
+          <div class="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">หมายเหตุ</p>
+            <p class="text-sm font-bold text-slate-700 leading-relaxed">${escapeHtml(noteText)}</p>
+          </div>
+        ` : ''}
 
-            ${paymentGroups.length ? `
-              <div class="mb-4 space-y-3">
-                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">รายการชำระเงิน</p>
-                <div class="space-y-2">
-                  ${paymentGroups.map(pg => {
-                    const hasAttachment = !!pg.attachmentUrl;
-                    const groupNoteText = String(pg.note || '').trim();
+        ${paymentGroups.length ? `
+          <div class="mb-4 space-y-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">รายการชำระเงิน</p>
+            <div class="space-y-2">
+              ${paymentGroups.map(pg => {
+                const hasAttachment = !!pg.attachmentUrl;
+                const groupNoteText = String(pg.note || '').trim();
 
-                    return `
-                      <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <div class="flex items-start justify-between gap-3">
-                          <div class="min-w-0">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">ชำระ</p>
-                            <p class="text-sm font-black text-slate-800">
-                              งวดที่ ${escapeHtml(pg.installmentsLabel || '-')} • ${escapeHtml(pg.method || '-')}
-                            </p>
-                            <p class="text-xs text-slate-500 mt-1">${escapeHtml(pg.timestamp || '')}</p>
+                return `
+                  <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">ชำระ</p>
+                        <p class="text-sm font-black text-slate-800">
+                          งวดที่ ${escapeHtml(pg.installmentsLabel || '-')} • ${escapeHtml(pg.method || '-')}
+                        </p>
+                        <p class="text-xs text-slate-500 mt-1">${escapeHtml(pg.timestamp || '')}</p>
 
-                            ${groupNoteText ? `
-                              <div class="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
-                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">หมายเหตุ</p>
-                                <p class="text-xs font-bold text-slate-700 leading-relaxed">${escapeHtml(groupNoteText)}</p>
-                              </div>
-                            ` : ''}
+                        ${groupNoteText ? `
+                          <div class="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">หมายเหตุ</p>
+                            <p class="text-xs font-bold text-slate-700 leading-relaxed">${escapeHtml(groupNoteText)}</p>
                           </div>
-
-                          <div class="text-right shrink-0">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">จำนวน</p>
-                            <p class="text-lg font-black text-slate-900">${formatCurrency(pg.amountPaid || 0)} ฿</p>
-                          </div>
-                        </div>
-
-                        <div class="mt-3 flex items-center gap-2 flex-wrap">
-                          <span class="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${pg.method === 'เงินสด' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}">
-                            ${escapeHtml(pg.method || '-')}
-                          </span>
-
-                          ${hasAttachment ? `
-                            <a href="${escapeAttr(pg.attachmentUrl)}" target="_blank" rel="noopener"
-                              class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border-2 border-indigo-100 text-indigo-600 text-xs font-black active:scale-[0.98]">
-                              <i data-lucide="file-text" class="w-4 h-4"></i> หลักฐาน
-                            </a>
-                          ` : `
-                            <span class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border-2 border-slate-100 text-slate-400 text-xs font-black">
-                              <i data-lucide="image-off" class="w-4 h-4"></i> ไม่มีไฟล์
-                            </span>
-                          `}
-                        </div>
+                        ` : ''}
                       </div>
-                    `;
-                  }).join('')}
-                </div>
-              </div>
-            ` : ''}
 
-            <div class="grid grid-cols-1 gap-2 mb-2">
-              <button class="verifyBtn w-full py-4 bg-white text-slate-700 border-2 border-slate-200 rounded-xl text-sm font-black hover:border-indigo-300 transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-sm" data-doc="${escapeAttr(record.docNo || '')}">
-                <i data-lucide="${verificationStatus === 'ตรวจสอบแล้ว' ? 'shield-check' : 'shield-alert'}" class="w-4 h-4 ${verificationStatus === 'ตรวจสอบแล้ว' ? 'text-emerald-500' : 'text-amber-500'}"></i>
-                ${escapeHtml(verificationStatus)}
-              </button>
-            </div>
+                      <div class="text-right shrink-0">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">จำนวน</p>
+                        <p class="text-lg font-black text-slate-900">${formatCurrency(pg.amountPaid || 0)} ฿</p>
+                      </div>
+                    </div>
 
-            <div class="grid grid-cols-1 gap-2">
-              ${!isFullyPaid ? `
-                <button class="payBtn w-full py-4 bg-indigo-600 text-white rounded-xl text-sm font-black hover:bg-indigo-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2" data-doc="${escapeAttr(record.docNo || '')}">
-                  <i data-lucide="credit-card" class="w-4 h-4"></i> ทำรายการชำระคืน
-                </button>
-              ` : `
-                <div class="w-full py-4 bg-emerald-50 text-emerald-600 rounded-xl text-sm font-black flex items-center justify-center gap-2 border border-emerald-100">
-                  <i data-lucide="check-circle-2" class="w-4 h-4"></i> ปิดยอดแล้ว
-                </div>
-              `}
+                    <div class="mt-3 flex items-center gap-2 flex-wrap">
+                      <span class="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${pg.method === 'เงินสด' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}">
+                        ${escapeHtml(pg.method || '-')}
+                      </span>
+
+                      ${hasAttachment ? `
+                        <a href="${escapeAttr(pg.attachmentUrl)}" target="_blank" rel="noopener"
+                          class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border-2 border-indigo-100 text-indigo-600 text-xs font-black active:scale-[0.98]">
+                          <i data-lucide="file-text" class="w-4 h-4"></i> หลักฐาน
+                        </a>
+                      ` : `
+                        <span class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border-2 border-slate-100 text-slate-400 text-xs font-black">
+                          <i data-lucide="image-off" class="w-4 h-4"></i> ไม่มีไฟล์
+                        </span>
+                      `}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
             </div>
           </div>
-        `;
-      }).join('');
+        ` : ''}
 
-      document.querySelectorAll('.payBtn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const docNo = btn.getAttribute('data-doc');
-          const record = state.records.find(r => r.docNo === docNo);
-          if (record) openPaymentModal(record);
-        });
-      });
+        <div class="grid grid-cols-1 gap-2 mb-2">
+          <button class="verifyBtn w-full py-4 bg-white text-slate-700 border-2 border-slate-200 rounded-xl text-sm font-black hover:border-indigo-300 transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-sm" 
+                  data-doc="${escapeAttr(record.docNo || '')}">
+            <i data-lucide="${verificationStatus === 'ตรวจสอบแล้ว' ? 'shield-check' : 'shield-alert'}" 
+              class="w-4 h-4 ${verificationStatus === 'ตรวจสอบแล้ว' ? 'text-emerald-500' : 'text-amber-500'}"></i>
+            ${verificationStatus}
+          </button>
+        </div>
 
-      document.querySelectorAll('.verifyBtn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const docNo = btn.getAttribute('data-doc');
-          const record = state.records.find(r => r.docNo === docNo);
-          if (record) changeVerificationStatus(record);
-        });
-      });
+        <div class="grid grid-cols-1 gap-2">
+          ${!isFullyPaid ? `
+            <button class="payBtn w-full py-4 bg-indigo-600 text-white rounded-xl text-sm font-black hover:bg-indigo-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2" data-doc="${escapeAttr(record.docNo || '')}">
+              <i data-lucide="credit-card" class="w-4 h-4"></i> ทำรายการชำระคืน
+            </button>
+          ` : `
+            <div class="w-full py-4 bg-emerald-50 text-emerald-600 rounded-xl text-sm font-black flex items-center justify-center gap-2 border border-emerald-100">
+              <i data-lucide="check-circle-2" class="w-4 h-4"></i> ปิดยอดแล้ว
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+  }).join('');
 
-      lucide.createIcons();
-    }
+  document.querySelectorAll('.payBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const docNo = btn.getAttribute('data-doc');
+      const record = state.records.find(r => r.docNo === docNo);
+      if (record) openPaymentModal(record);
+    });
+  });
+
+  document.querySelectorAll('.verifyBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const docNo = btn.getAttribute('data-doc');
+      const record = state.records.find(r => r.docNo === docNo);
+      if (record) changeVerificationStatus(record);
+    });
+  });
+
+  lucide.createIcons();
+}
 
     function openPaymentModal(record) {
       state.selectedRecord = record;
-      state.payment = { method: 'โอน', payAll: false, attachment: null };
+      state.payment = {
+        method: 'โอน',
+        payAll: false,
+        attachment: null
+      };
 
       const unpaid = getUnpaidInstallments(record);
       if (!unpaid.length) {
@@ -815,56 +805,56 @@
     }
 
     async function submitBorrow() {
-      try {
-        const name = els.borrowName.value.trim();
-        const phone = els.borrowPhone.value.trim();
-        const dueDate = els.borrowDueDate.value.trim();
-        const amount = toNumber(els.borrowAmount.value);
-        const interest = toNumber(els.borrowInterest.value);
-        const installments = parseInt(els.borrowInstallments.value || '0', 10);
-        const note = els.borrowNote.value.trim();
+  try {
+    const name = els.borrowName.value.trim();
+    const phone = els.borrowPhone.value.trim();
+    const dueDate = els.borrowDueDate.value.trim();
+    const amount = toNumber(els.borrowAmount.value);
+    const interest = toNumber(els.borrowInterest.value);
+    const installments = parseInt(els.borrowInstallments.value || '0', 10);
+    const note = els.borrowNote.value.trim();
 
-        if (!name || !phone || !dueDate || amount <= 0 || !note) {
-          showToast('กรุณากรอกข้อมูลบังคับให้ครบ', 'error', 2200);
-          return;
-        }
-        if (state.borrow.isInstallment && installments < 1) {
-          showToast('กรุณาระบุจำนวนงวด', 'error', 2200);
-          return;
-        }
-
-        setLoadingButton(els.borrowSubmitBtn, true, 'กำลังบันทึก...');
-        await baserowSaveBorrow({
-          name,
-          phone,
-          dueDate,
-          amount,
-          interest,
-          note,
-          isInstallment: state.borrow.isInstallment,
-          installments,
-          receiveMethod: state.borrow.receiveMethod,
-          attachment: null
-        });
-
-        showToast('บันทึกข้อมูลเรียบร้อย', 'success', 1800);
-
-        els.borrowForm.reset();
-        state.borrow.isInstallment = false;
-        state.borrow.receiveMethod = 'โอน';
-        els.borrowDueDate.value = '';
-        setBorrowReceiveMethod('โอน');
-        syncBorrowInstallmentUI();
-
-        await loadData();
-        setView('home');
-      } catch (err) {
-        console.error(err);
-        showToast(err.message || 'บันทึกไม่สำเร็จ', 'error', 2800);
-      } finally {
-        setLoadingButton(els.borrowSubmitBtn, false, 'ยืนยันบันทึกข้อมูล');
-      }
+    if (!name || !phone || !dueDate || amount <= 0 || !note) {
+      showToast('กรุณากรอกข้อมูลบังคับให้ครบ', 'error', 2200);
+      return;
     }
+    if (state.borrow.isInstallment && installments < 1) {
+      showToast('กรุณาระบุจำนวนงวด', 'error', 2200);
+      return;
+    }
+
+    setLoadingButton(els.borrowSubmitBtn, true, 'กำลังบันทึก...');
+    await saveBorrow({
+      name,
+      phone,
+      dueDate,
+      amount,
+      interest,
+      note,
+      isInstallment: state.borrow.isInstallment,
+      installments,
+      receiveMethod: state.borrow.receiveMethod,
+      attachment: null
+    });
+
+    showToast('บันทึกข้อมูลเรียบร้อย', 'success', 1800);
+
+    els.borrowForm.reset();
+    state.borrow.isInstallment = false;
+    state.borrow.receiveMethod = 'โอน';
+    els.borrowDueDate.value = '';
+    setBorrowReceiveMethod('โอน');
+    syncBorrowInstallmentUI();
+
+    await loadData();
+    setView('home');
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || 'บันทึกไม่สำเร็จ', 'error', 2800);
+  } finally {
+    setLoadingButton(els.borrowSubmitBtn, false, 'ยืนยันบันทึกข้อมูล');
+  }
+}
 
     async function handlePaymentSubmit() {
       if (!state.selectedRecord) return;
@@ -885,7 +875,7 @@
         }
 
         setLoadingButton(els.paymentConfirm, true, 'กำลังบันทึก...');
-        await baserowSavePayment({
+        await savePayment({
           docNo: record.docNo,
           installmentNo,
           payAll,
@@ -956,7 +946,7 @@
       if (!record || !nextStatus) return;
 
       try {
-        await baserowUpdateVerificationStatus({
+        await updateVerificationStatus({
           docNo: record.docNo,
           verificationStatus: nextStatus,
           pin: '1234'
@@ -1052,354 +1042,407 @@
       });
     }
 
-    async function baserowRequest(url, options = {}) {
-      if (!BASEROW_TOKEN || BASEROW_TOKEN.includes('PASTE_YOUR_DATABASE_TOKEN_HERE')) {
-        throw new Error('กรุณาใส่ Baserow database token ในตัวแปร BASEROW_TOKEN');
-      }
-
+    async function apiRequest(path, options = {}) {
+      const url = path.startsWith('http') ? path : `${BASE_URL}${path}`;
       const headers = new Headers(options.headers || {});
       headers.set('Authorization', `Token ${BASEROW_TOKEN}`);
-
-      const init = { ...options, headers, mode: 'cors' };
       if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
         headers.set('Content-Type', 'application/json');
       }
+      headers.set('Accept', 'application/json');
 
-      if (options.body && options.body instanceof FormData) {
-        delete init.headers;
-        init.body = options.body;
-        init.mode = 'cors';
-        init.method = options.method || 'POST';
-        init.headers = { Authorization: `Token ${BASEROW_TOKEN}` };
-      }
+      const res = await fetch(url, {
+        ...options,
+        headers
+      });
 
-      const res = await fetch(url, init);
-      const text = await res.text();
-      let data = null;
-      try { data = text ? JSON.parse(text) : null; } catch { data = text; }
+      const contentType = res.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+      const data = isJson ? await res.json().catch(() => null) : await res.text();
 
       if (!res.ok) {
-        const msg = data?.detail || data?.error || data?.message || text || `HTTP ${res.status}`;
-        throw new Error(typeof msg === 'string' ? msg : `HTTP ${res.status}`);
+        const message = normalizeApiError(data) || `Baserow API error (${res.status})`;
+        throw new Error(message);
       }
+
       return data;
     }
 
-    function rowUrl(rowId = '') {
-      return `${BASEROW_BASE_URL}/api/database/rows/table/${TABLE_ID}/${rowId ? `${rowId}/` : ''}?user_field_names=true`;
-    }
-
-    async function baserowListRows() {
-      let url = `${BASEROW_BASE_URL}/api/database/rows/table/${TABLE_ID}/?user_field_names=true&size=200&order_by=-id`;
-      const out = [];
-      while (url) {
-        const data = await baserowRequest(url, { method: 'GET' });
-        const results = Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
-        out.push(...results);
-        url = data?.next || null;
-      }
-      out.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
-      return out;
-    }
-
-    async function baserowUploadFile(payload) {
-      const form = new FormData();
-      const bytes = base64ToBytes(payload.base64 || '');
-      const file = new File([bytes], sanitizeFileName(payload.name || 'attachment'), { type: payload.mimeType || 'application/octet-stream' });
-      form.append('file', file, file.name);
-      return await baserowRequest(`${BASEROW_BASE_URL}/api/user-files/upload-file/`, {
-        method: 'POST',
-        body: form
-      });
-    }
-
-    function base64ToBytes(base64) {
-      const bin = atob(base64 || '');
-      const arr = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
-      return arr;
-    }
-
-    function sanitizeFileName(name) {
-      return String(name || 'file').replace(/[\\\/:*?"<>|]/g, '_').trim();
-    }
-
-    function normalizeFileField(value) {
-      if (!value) return [];
-      if (Array.isArray(value)) return value;
-      if (typeof value === 'string') {
-        try {
-          const parsed = JSON.parse(value);
-          return Array.isArray(parsed) ? parsed : [];
-        } catch {
-          return [];
+    function normalizeApiError(data) {
+      if (!data) return '';
+      if (typeof data === 'string') return data;
+      if (typeof data.detail === 'string') return data.detail;
+      if (typeof data.error === 'string') return data.error;
+      if (Array.isArray(data)) return data.map(normalizeApiError).filter(Boolean).join(', ');
+      if (typeof data === 'object') {
+        const parts = [];
+        for (const [key, value] of Object.entries(data)) {
+          if (Array.isArray(value)) {
+            const inner = value.map(v => (typeof v === 'string' ? v : (v && typeof v.error === 'string' ? v.error : JSON.stringify(v)))).join(', ');
+            parts.push(`${key}: ${inner}`);
+          } else if (value && typeof value === 'object') {
+            parts.push(`${key}: ${normalizeApiError(value)}`);
+          } else if (value !== undefined && value !== null) {
+            parts.push(`${key}: ${String(value)}`);
+          }
         }
+        return parts.filter(Boolean).join(' | ');
       }
-      return [];
+      return String(data);
     }
 
-    function getFileInfoFromField(value) {
-      const list = normalizeFileField(value);
-      const first = list[0] || null;
-      return first ? {
-        url: first.url || first.public_url || first.file_url || '',
-        name: first.name || first.original_name || '',
-        raw: first
-      } : { url: '', name: '', raw: null };
-    }
+    async function getAppData() {
+      const rows = await fetchAllRows();
+      await backfillMissingDocNos(rows);
 
-    function parseFieldValue(row, name, fallback = '') {
-      const v = row?.[name];
-      return v == null ? fallback : v;
-    }
+      const records = [];
+      const paymentsByDoc = {};
+      const borrowRows = rows.filter(row => String(row[FIELD_MAP.type] || '').trim() === 'ยืม');
 
-    function getTimestampText() {
-      const d = new Date();
-      return new Intl.DateTimeFormat('en-GB', {
-        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        day: '2-digit', month: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit', second: '2-digit',
-        hour12: false
-      }).format(d).replace(',', '');
-    }
+      rows.forEach(row => {
+        const type = String(row[FIELD_MAP.type] || '').trim();
+        const docNo = String(row[FIELD_MAP.docNo] || '').trim();
+        if (type === 'ชำระ' && docNo) {
+          const payment = rowToPaymentRecord_(row);
+          if (!paymentsByDoc[docNo]) paymentsByDoc[docNo] = [];
+          paymentsByDoc[docNo].push(payment);
+        }
+      });
 
-    function buildBorrowRowPayload(payload, attachmentValue = null) {
-      const totalDebt = Number(payload.amount || 0) + Number(payload.interest || 0);
-      const installmentAmount = payload.isInstallment ? totalDebt / Math.max(1, Number(payload.installments || 1)) : totalDebt;
+      borrowRows.forEach(row => {
+        const record = rowToBorrowRecord_(row);
+        const summary = buildPaymentSummary_(record, paymentsByDoc[record.docNo] || []);
+        records.push({ ...record, ...summary });
+      });
+
+      records.sort((a, b) => (b.rowId || 0) - (a.rowId || 0));
 
       return {
-        [FIELD.TYPE]: 'ยืม',
-        [FIELD.TIMESTAMP]: getTimestampText(),
-        [FIELD.NAME]: payload.name,
-        [FIELD.PHONE]: payload.phone,
-        [FIELD.AMOUNT]: Number(payload.amount || 0),
-        [FIELD.DUE_DATE]: payload.dueDate,
-        [FIELD.INSTALLMENT_TYPE]: payload.isInstallment ? 'ผ่อน' : 'ไม่ผ่อน',
-        [FIELD.INSTALLMENTS]: payload.isInstallment ? Math.max(1, parseInt(payload.installments, 10) || 1) : 1,
-        [FIELD.INSTALLMENT_AMOUNT]: installmentAmount,
-        [FIELD.RECEIVE_METHOD]: payload.receiveMethod || 'โอน',
-        [FIELD.ATTACHMENT]: attachmentValue || [],
-        [FIELD.INTEREST]: Number(payload.interest || 0),
-        [FIELD.STATUS]: 'รอชำระ',
-        [FIELD.DOCNO]: payload.docNo,
-        [FIELD.NOTE]: payload.note || '',
-        [FIELD.VERIFY]: 'รอตรวจสอบ'
+        nextDocNo: generateNextDocNo(rows),
+        records: records.map(stripInternalFields)
       };
     }
 
-    async function baserowSaveBorrow(payload) {
-      const docNo = await generateNextDocNoPromise();
-      payload.docNo = docNo;
+    async function saveBorrow(payload) {
+      const name = String(payload?.name || '').trim();
+      const phone = String(payload?.phone || '').trim();
+      const dueDate = String(payload?.dueDate || '').trim();
+      const receiveMethod = String(payload?.receiveMethod || 'โอน').trim();
+      const note = String(payload?.note || '').trim();
+      const amount = toNumber(payload?.amount);
+      const interest = toNumber(payload?.interest);
+      const isInstallment = !!payload?.isInstallment;
+      const installments = isInstallment ? Math.max(1, parseInt(payload?.installments, 10) || 0) : 1;
 
-      let attachmentValue = [];
-      if (payload.attachment?.base64) {
-        const uploaded = await baserowUploadFile(payload.attachment);
-        attachmentValue = [uploaded];
+      if (!name || !phone || !dueDate || amount <= 0) {
+        throw new Error('กรุณากรอกข้อมูลบังคับให้ครบ');
+      }
+      if (isInstallment && installments < 1) {
+        throw new Error('กรุณาระบุจำนวนงวดมากกว่า 0');
       }
 
-      const body = buildBorrowRowPayload(payload, attachmentValue);
-      await baserowRequest(`${BASEROW_BASE_URL}/api/database/rows/table/${TABLE_ID}/?user_field_names=true`, {
-        method: 'POST',
-        body: JSON.stringify(body)
-      });
+      const totalDebt = amount + interest;
+      const installmentAmount = isInstallment ? totalDebt / installments : totalDebt;
+      const docNo = await nextAvailableDocNo();
+      const timestamp = nowText();
+      const verifyStatus = 'รอตรวจสอบ';
+
+      const rowPayload = {
+        [FIELD_MAP.type]: 'ยืม',
+        [FIELD_MAP.timestamp]: timestamp,
+        [FIELD_MAP.name]: name,
+        [FIELD_MAP.phone]: phone,
+        [FIELD_MAP.amount]: amount,
+        [FIELD_MAP.dueDate]: dueDate,
+        [FIELD_MAP.installmentType]: isInstallment ? 'ผ่อน' : 'ไม่ผ่อน',
+        [FIELD_MAP.installments]: installments,
+        [FIELD_MAP.installmentAmount]: installmentAmount,
+        [FIELD_MAP.receiveMethod]: receiveMethod,
+        [FIELD_MAP.interest]: interest,
+        [FIELD_MAP.status]: 'รอชำระ',
+        [FIELD_MAP.docNo]: docNo,
+        [FIELD_MAP.note]: note,
+        [FIELD_MAP.verificationStatus]: verifyStatus
+      };
+
+      if (payload?.attachment?.base64) {
+        const uploaded = await uploadAttachment(payload.attachment, `${docNo}_${payload.attachment.name || 'attachment'}`);
+        rowPayload[FIELD_MAP.attachment] = [uploaded];
+      }
+
+      await createRow(rowPayload);
       return { success: true, docNo };
     }
 
-    async function baserowSavePayment(payload) {
-      const allRows = await baserowListRows();
+    async function savePayment(payload) {
       const docNo = String(payload?.docNo || '').trim();
+      const method = String(payload?.method || 'โอน').trim();
+      const note = String(payload?.note || '').trim();
+      const payAll = !!payload?.payAll;
+      const installmentNo = parseInt(payload?.installmentNo, 10);
+
       if (!docNo) throw new Error('ไม่พบเลขที่เอกสาร');
 
-      const borrowRow = allRows.find(r => String(r?.[FIELD.TYPE] || '').trim() === 'ยืม' && String(r?.[FIELD.DOCNO] || '').trim() === docNo);
+      const rows = await fetchAllRows();
+      const borrowRow = rows.find(row => String(row[FIELD_MAP.type] || '').trim() === 'ยืม' && String(row[FIELD_MAP.docNo] || '').trim() === docNo);
       if (!borrowRow) throw new Error('ไม่พบรายการยืมที่ต้องการชำระ');
 
-      const record = rowToBorrowRecord(borrowRow);
+      const record = rowToBorrowRecord_(borrowRow);
       const totalInstallments = Math.max(1, toNumber(record.installments) || 1);
+      const existingPayments = rows
+        .filter(row => String(row[FIELD_MAP.type] || '').trim() === 'ชำระ' && String(row[FIELD_MAP.docNo] || '').trim() === docNo)
+        .map(rowToPaymentRecord_);
 
-      const existingPayments = allRows
-        .filter(r => String(r?.[FIELD.TYPE] || '').trim() === 'ชำระ' && String(r?.[FIELD.DOCNO] || '').trim() === docNo)
-        .map(rowToPaymentRecord);
+      const paidSet = new Set(
+        existingPayments
+          .filter(p => p.status === 'ชำระแล้ว')
+          .map(p => p.installmentNo)
+      );
 
-      const paidSet = new Set(existingPayments.filter(p => p.status === 'ชำระแล้ว').map(p => p.installmentNo));
       let targets = [];
-
-      if (payload.payAll) {
+      if (payAll) {
         for (let i = 1; i <= totalInstallments; i++) {
           if (!paidSet.has(i)) targets.push(i);
         }
       } else {
-        const installmentNo = parseInt(payload.installmentNo, 10);
         if (!installmentNo || installmentNo < 1 || installmentNo > totalInstallments) {
           throw new Error('งวดที่เลือกไม่ถูกต้อง');
         }
-        if (paidSet.has(installmentNo)) throw new Error('งวดนี้ถูกชำระแล้ว');
+        if (paidSet.has(installmentNo)) {
+          throw new Error('งวดนี้ถูกชำระแล้ว');
+        }
         targets = [installmentNo];
       }
 
-      if (!targets.length) throw new Error('ไม่พบงวดค้างชำระ');
+      if (targets.length === 0) throw new Error('ไม่พบงวดค้างชำระ');
 
-      const ts = getTimestampText();
-      const amountPerInst = Number(record.installmentAmount || 0) || ((Number(record.amount || 0) + Number(record.interest || 0)) / totalInstallments);
+      const ts = nowText();
+      const amountPerInst = toNumber(record.installmentAmount) || ((toNumber(record.amount) + toNumber(record.interest)) / totalInstallments);
       const verifyStatus = 'รอตรวจสอบ';
-
-      let attachmentValue = [];
-      if (payload.attachment?.base64) {
-        const uploaded = await baserowUploadFile(payload.attachment);
-        attachmentValue = [uploaded];
-      }
+      const uploaded = payload?.attachment?.base64 ? await uploadAttachment(payload.attachment, `${docNo}_PAY_${targets.join('-')}_${payload.attachment.name || 'attachment'}`) : null;
 
       for (const instNo of targets) {
-        const rowBody = {
-          [FIELD.TYPE]: 'ชำระ',
-          [FIELD.TIMESTAMP]: ts,
-          [FIELD.NAME]: record.name,
-          [FIELD.PHONE]: record.phone,
-          [FIELD.AMOUNT]: amountPerInst,
-          [FIELD.DUE_DATE]: '',
-          [FIELD.INSTALLMENT_TYPE]: '',
-          [FIELD.INSTALLMENTS]: instNo,
-          [FIELD.INSTALLMENT_AMOUNT]: '',
-          [FIELD.RECEIVE_METHOD]: payload.method || 'โอน',
-          [FIELD.ATTACHMENT]: attachmentValue,
-          [FIELD.INTEREST]: '',
-          [FIELD.STATUS]: 'ชำระแล้ว',
-          [FIELD.DOCNO]: docNo,
-          [FIELD.NOTE]: payload.note || '',
-          [FIELD.VERIFY]: verifyStatus
+        const paymentPayload = {
+          [FIELD_MAP.type]: 'ชำระ',
+          [FIELD_MAP.timestamp]: ts,
+          [FIELD_MAP.name]: record.name,
+          [FIELD_MAP.phone]: record.phone,
+          [FIELD_MAP.amount]: amountPerInst,
+          [FIELD_MAP.installmentType]: '',
+          [FIELD_MAP.installments]: instNo,
+          [FIELD_MAP.installmentAmount]: '',
+          [FIELD_MAP.receiveMethod]: method,
+          [FIELD_MAP.interest]: '',
+          [FIELD_MAP.status]: 'ชำระแล้ว',
+          [FIELD_MAP.docNo]: docNo,
+          [FIELD_MAP.note]: note,
+          [FIELD_MAP.verificationStatus]: verifyStatus
         };
-        await baserowRequest(`${BASEROW_BASE_URL}/api/database/rows/table/${TABLE_ID}/?user_field_names=true`, {
-          method: 'POST',
-          body: JSON.stringify(rowBody)
-        });
+        if (uploaded) paymentPayload[FIELD_MAP.attachment] = [uploaded];
+        await createRow(paymentPayload);
       }
 
-      const refreshed = await baserowListRows();
-      const allPaymentRows = refreshed.filter(r => String(r?.[FIELD.TYPE] || '').trim() === 'ชำระ' && String(r?.[FIELD.DOCNO] || '').trim() === docNo);
-      const summary = buildPaymentSummary(record, allPaymentRows.map(rowToPaymentRecord));
-      const patchBody = {
-        [FIELD.STATUS]: summary.status,
-        [FIELD.VERIFY]: verifyStatus
-      };
-      if (attachmentValue.length) patchBody[FIELD.ATTACHMENT] = attachmentValue;
+      const allRowsAfter = await fetchAllRows();
+      const updatedBorrow = allRowsAfter.find(row => String(row[FIELD_MAP.type] || '').trim() === 'ยืม' && String(row[FIELD_MAP.docNo] || '').trim() === docNo);
+      if (!updatedBorrow) throw new Error('ไม่พบรายการยืมหลังบันทึกข้อมูล');
 
-      await baserowUpdateRowsByDocNo(docNo, patchBody);
-      return { success: true, status: summary.status, paidCount: summary.paidCount, totalInstallments: summary.totalInstallments };
+      const refreshedPayments = allRowsAfter
+        .filter(row => String(row[FIELD_MAP.type] || '').trim() === 'ชำระ' && String(row[FIELD_MAP.docNo] || '').trim() === docNo)
+        .map(rowToPaymentRecord_);
+
+      const summary = buildPaymentSummary_(rowToBorrowRecord_(updatedBorrow), refreshedPayments);
+
+      const updateBorrowPayload = {
+        [FIELD_MAP.status]: summary.status
+      };
+      if (uploaded) {
+        updateBorrowPayload[FIELD_MAP.attachment] = [uploaded];
+      }
+
+      await updateRow(updatedBorrow.id, updateBorrowPayload);
+      await bulkUpdateVerificationStatus(allRowsAfter, docNo, verifyStatus);
+
+      return {
+        success: true,
+        status: summary.status,
+        paidCount: summary.paidCount,
+        totalInstallments: summary.totalInstallments
+      };
     }
 
-    async function baserowUpdateVerificationStatus(payload) {
+    async function updateVerificationStatus(payload) {
       const docNo = String(payload?.docNo || '').trim();
       const verificationStatus = String(payload?.verificationStatus || '').trim();
       const pin = String(payload?.pin || '').trim();
 
       if (pin !== '1234') throw new Error('รหัสไม่ถูกต้อง');
-      if (!['รอตรวจสอบ', 'ตรวจสอบแล้ว'].includes(verificationStatus)) throw new Error('สถานะไม่ถูกต้อง');
-      await baserowUpdateRowsByDocNo(docNo, { [FIELD.VERIFY]: verificationStatus });
+      if (!['รอตรวจสอบ', 'ตรวจสอบแล้ว'].includes(verificationStatus)) {
+        throw new Error('สถานะไม่ถูกต้อง');
+      }
+
+      const rows = await fetchAllRows();
+      await bulkUpdateVerificationStatus(rows, docNo, verificationStatus);
       return { success: true };
     }
 
-    async function baserowUpdateRowsByDocNo(docNo, fields) {
-      const rows = await baserowListRows();
-      const matches = rows.filter(r => String(r?.[FIELD.DOCNO] || '').trim() === String(docNo).trim());
-      for (const row of matches) {
-        await baserowRequest(`${BASEROW_BASE_URL}/api/database/rows/table/${TABLE_ID}/${row.id}/?user_field_names=true`, {
-          method: 'PATCH',
-          body: JSON.stringify(fields)
+    async function bulkUpdateVerificationStatus(rows, docNo, status) {
+      const target = String(docNo || '').trim();
+      if (!target) return;
+
+      const updates = rows.filter(row => {
+        const type = String(row[FIELD_MAP.type] || '').trim();
+        const rowDoc = String(row[FIELD_MAP.docNo] || '').trim();
+        return rowDoc === target && (type === 'ยืม' || type === 'ชำระ');
+      });
+
+      for (const row of updates) {
+        await updateRow(row.id, {
+          [FIELD_MAP.verificationStatus]: status
         });
       }
     }
 
-    function rowToBorrowRecord(row) {
-      const attachmentInfo = getFileInfoFromField(row?.[FIELD.ATTACHMENT]);
+    async function fetchAllRows() {
+      const all = [];
+      let next = `${BASE_URL}/api/database/rows/table/${TABLE_ID}/?user_field_names=true&size=200`;
+      while (next) {
+        const data = await apiRequest(next, { method: 'GET' });
+        const results = Array.isArray(data?.results) ? data.results : [];
+        all.push(...results);
+        next = data?.next || null;
+      }
+      return all;
+    }
+
+    async function createRow(payload) {
+      return apiRequest(`/api/database/rows/table/${TABLE_ID}/?user_field_names=true`, {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+    }
+
+    async function updateRow(rowId, payload) {
+      return apiRequest(`/api/database/rows/table/${TABLE_ID}/${rowId}/?user_field_names=true`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload)
+      });
+    }
+
+    async function uploadAttachment(fileObj, fileName) {
+      const file = await base64ToFile(fileObj, fileName);
+      const form = new FormData();
+      form.append('file', file, file.name);
+      const res = await apiRequest('/api/user-files/upload-file/', {
+        method: 'POST',
+        body: form
+      });
+      const fileEntry = Array.isArray(res) ? res[0] : res;
+      if (!fileEntry) throw new Error('อัปโหลดไฟล์ไม่สำเร็จ');
+      return fileEntry;
+    }
+
+    async function base64ToFile(fileObj, fileName) {
+      const base64 = String(fileObj?.base64 || '');
+      if (!base64) throw new Error('ไม่พบข้อมูลไฟล์');
+      const mimeType = String(fileObj?.mimeType || 'application/octet-stream');
+      const bin = atob(base64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const safeName = sanitizeFileName(fileName || fileObj?.name || 'file');
+      return new File([bytes], safeName, { type: mimeType });
+    }
+
+    function sanitizeFileName(name) {
+      return String(name || 'file')
+        .replace(/[\\\/:*?"<>|]/g, '_')
+        .trim();
+    }
+
+    function normalizeFileValue(value) {
+      if (!value) return null;
+      if (Array.isArray(value)) return value;
+      if (typeof value === 'object') return [value];
+      return null;
+    }
+
+    function rowToBorrowRecord_(row) {
       return {
-        id: row?.id || null,
-        type: String(row?.[FIELD.TYPE] || '').trim() || 'ยืม',
-        timestamp: String(row?.[FIELD.TIMESTAMP] || '').trim(),
-        name: String(row?.[FIELD.NAME] || '').trim(),
-        phone: String(row?.[FIELD.PHONE] || '').trim(),
-        amount: toNumber(row?.[FIELD.AMOUNT]),
-        dueDate: String(row?.[FIELD.DUE_DATE] || '').trim(),
-        installmentType: String(row?.[FIELD.INSTALLMENT_TYPE] || '').trim(),
-        installments: Math.max(1, parseInt(row?.[FIELD.INSTALLMENTS], 10) || 1),
-        installmentAmount: toNumber(row?.[FIELD.INSTALLMENT_AMOUNT]),
-        receiveMethod: String(row?.[FIELD.RECEIVE_METHOD] || '').trim(),
-        attachmentName: attachmentInfo.name,
-        attachmentUrl: attachmentInfo.url,
-        interest: toNumber(row?.[FIELD.INTEREST]),
-        status: String(row?.[FIELD.STATUS] || '').trim(),
-        docNo: String(row?.[FIELD.DOCNO] || '').trim(),
-        note: String(row?.[FIELD.NOTE] || '').trim(),
-        verificationStatus: String(row?.[FIELD.VERIFY] || 'รอตรวจสอบ').trim() || 'รอตรวจสอบ'
+        rowId: row.id,
+        type: String(row[FIELD_MAP.type] || '').trim() || 'ยืม',
+        timestamp: formatCell(row[FIELD_MAP.timestamp]),
+        name: String(row[FIELD_MAP.name] || '').trim(),
+        phone: String(row[FIELD_MAP.phone] || '').trim(),
+        amount: toNumber(row[FIELD_MAP.amount]),
+        dueDate: formatCell(row[FIELD_MAP.dueDate]),
+        installmentType: String(row[FIELD_MAP.installmentType] || '').trim(),
+        installments: Math.max(1, parseInt(row[FIELD_MAP.installments], 10) || 1),
+        installmentAmount: toNumber(row[FIELD_MAP.installmentAmount]),
+        receiveMethod: String(row[FIELD_MAP.receiveMethod] || '').trim(),
+        attachmentName: extractAttachment(row[FIELD_MAP.attachment]).name,
+        attachmentUrl: extractAttachment(row[FIELD_MAP.attachment]).url,
+        interest: toNumber(row[FIELD_MAP.interest]),
+        status: String(row[FIELD_MAP.status] || '').trim(),
+        docNo: String(row[FIELD_MAP.docNo] || '').trim(),
+        note: String(row[FIELD_MAP.note] || '').trim(),
+        verificationStatus: String(row[FIELD_MAP.verificationStatus] || 'รอตรวจสอบ').trim() || 'รอตรวจสอบ'
       };
     }
 
-    function rowToPaymentRecord(row) {
-      const attachmentInfo = getFileInfoFromField(row?.[FIELD.ATTACHMENT]);
+    function rowToPaymentRecord_(row) {
       return {
-        id: row?.id || null,
-        type: String(row?.[FIELD.TYPE] || '').trim() || 'ชำระ',
-        timestamp: String(row?.[FIELD.TIMESTAMP] || '').trim(),
-        borrowName: String(row?.[FIELD.NAME] || '').trim(),
-        phone: String(row?.[FIELD.PHONE] || '').trim(),
-        amountPaid: toNumber(row?.[FIELD.AMOUNT]),
-        installmentNo: Math.max(1, parseInt(row?.[FIELD.INSTALLMENTS], 10) || 1),
-        method: String(row?.[FIELD.RECEIVE_METHOD] || '').trim(),
-        attachmentName: attachmentInfo.name,
-        attachmentUrl: attachmentInfo.url,
-        status: String(row?.[FIELD.STATUS] || '').trim(),
-        docNo: String(row?.[FIELD.DOCNO] || '').trim(),
-        note: String(row?.[FIELD.NOTE] || '').trim(),
-        verificationStatus: String(row?.[FIELD.VERIFY] || 'รอตรวจสอบ').trim() || 'รอตรวจสอบ'
+        rowId: row.id,
+        type: String(row[FIELD_MAP.type] || '').trim() || 'ชำระ',
+        timestamp: formatCell(row[FIELD_MAP.timestamp]),
+        borrowName: String(row[FIELD_MAP.name] || '').trim(),
+        phone: String(row[FIELD_MAP.phone] || '').trim(),
+        amountPaid: toNumber(row[FIELD_MAP.amount]),
+        installmentNo: Math.max(1, parseInt(row[FIELD_MAP.installments], 10) || 1),
+        method: String(row[FIELD_MAP.receiveMethod] || '').trim(),
+        attachmentName: extractAttachment(row[FIELD_MAP.attachment]).name,
+        attachmentUrl: extractAttachment(row[FIELD_MAP.attachment]).url,
+        status: String(row[FIELD_MAP.status] || '').trim(),
+        docNo: String(row[FIELD_MAP.docNo] || '').trim(),
+        note: String(row[FIELD_MAP.note] || '').trim(),
+        verificationStatus: String(row[FIELD_MAP.verificationStatus] || 'รอตรวจสอบ').trim() || 'รอตรวจสอบ'
       };
     }
 
-    function buildRecordsFromRows(rows) {
-      const paymentsByDoc = {};
-      for (const row of rows) {
-        const type = String(row?.[FIELD.TYPE] || '').trim();
-        const docNo = String(row?.[FIELD.DOCNO] || '').trim();
-        if (type === 'ชำระ' && docNo) {
-          if (!paymentsByDoc[docNo]) paymentsByDoc[docNo] = [];
-          paymentsByDoc[docNo].push(rowToPaymentRecord(row));
-        }
-      }
-
-      const out = [];
-      for (const row of rows) {
-        const type = String(row?.[FIELD.TYPE] || '').trim();
-        if (type !== 'ยืม') continue;
-        const record = rowToBorrowRecord(row);
-        const summary = buildPaymentSummary(record, paymentsByDoc[record.docNo] || []);
-        out.push({ ...record, ...summary });
-      }
-
-      out.sort((a, b) => Number(b.id || 0) - Number(a.id || 0));
-      return out;
+    function extractAttachment(value) {
+      const files = normalizeFileValue(value);
+      const file = files && files.length ? files[0] : null;
+      if (!file) return { name: '', url: '' };
+      return {
+        name: String(file.original_name || file.name || ''),
+        url: String(file.url || '')
+      };
     }
 
-    function buildPaymentSummary(record, payments) {
+    function buildPaymentSummary_(record, payments) {
       const totalInstallments = Math.max(1, toNumber(record.installments) || 1);
       const paymentStatus = {};
+
       for (let i = 1; i <= totalInstallments; i++) {
         paymentStatus[i] = { status: 'รอชำระ', paidAt: null };
       }
 
-      payments
-        .slice()
-        .sort((a, b) => Number(a.id || 0) - Number(b.id || 0))
-        .forEach(p => {
-          if (p.installmentNo >= 1 && p.installmentNo <= totalInstallments) {
-            paymentStatus[p.installmentNo] = { status: 'ชำระแล้ว', paidAt: p.timestamp };
-          }
-        });
+      payments.forEach(p => {
+        if (p.installmentNo >= 1 && p.installmentNo <= totalInstallments) {
+          paymentStatus[p.installmentNo] = {
+            status: 'ชำระแล้ว',
+            paidAt: p.timestamp
+          };
+        }
+      });
 
       const paidCount = Object.values(paymentStatus).filter(x => x.status === 'ชำระแล้ว').length;
       const isFullyPaid = paidCount >= totalInstallments;
       let derivedStatus = record.status || 'รอชำระ';
+
       if (isFullyPaid) derivedStatus = 'ปิดยอดแล้ว';
       else if (paidCount > 0) derivedStatus = 'ชำระบางส่วน';
 
       const latestPayment = payments.length ? payments[payments.length - 1] : null;
-      const paymentGroups = buildPaymentGroups(payments);
+      const paymentGroups = buildPaymentGroups_(payments);
 
       return {
         paymentStatus,
@@ -1422,7 +1465,7 @@
       };
     }
 
-    function buildPaymentGroups(payments) {
+    function buildPaymentGroups_(payments) {
       const groupsMap = {};
       const orderedKeys = [];
 
@@ -1446,7 +1489,8 @@
             attachmentName: String(p.attachmentName || '').trim(),
             verificationStatus: String(p.verificationStatus || 'รอตรวจสอบ').trim() || 'รอตรวจสอบ',
             amountPaid: 0,
-            installmentNos: []
+            installmentNos: [],
+            _firstRowNumber: Number(p.rowId || 0)
           };
           orderedKeys.push(key);
         }
@@ -1455,34 +1499,214 @@
         group.amountPaid += toNumber(p.amountPaid);
 
         const instNo = Math.max(1, parseInt(p.installmentNo, 10) || 1);
-        if (!group.installmentNos.includes(instNo)) group.installmentNos.push(instNo);
+        if (!group.installmentNos.includes(instNo)) {
+          group.installmentNos.push(instNo);
+        }
+
+        if (!group._firstRowNumber || (p.rowId && p.rowId < group._firstRowNumber)) {
+          group._firstRowNumber = p.rowId;
+        }
       });
 
-      return orderedKeys.map(key => {
-        const group = groupsMap[key];
-        group.installmentNos.sort((a, b) => a - b);
-        group.installmentsLabel = group.installmentNos.join(', ');
-        return group;
-      }).sort((a, b) => (a.installmentNos[0] || 0) - (b.installmentNos[0] || 0));
+      return orderedKeys
+        .map(key => {
+          const group = groupsMap[key];
+          group.installmentNos.sort((a, b) => a - b);
+          group.installmentsLabel = group.installmentNos.join(', ');
+          delete group._firstRowNumber;
+          return group;
+        })
+        .sort((a, b) => {
+          const aNo = a.installmentNos?.[0] || 0;
+          const bNo = b.installmentNos?.[0] || 0;
+          return aNo - bNo;
+        });
     }
 
-    async function generateNextDocNoPromise() {
-      const rows = await baserowListRows();
+    async function backfillMissingDocNos(rows) {
+      const existing = new Set();
+      let maxNum = 0;
+
+      rows.forEach(row => {
+        const type = String(row[FIELD_MAP.type] || '').trim();
+        const docNo = String(row[FIELD_MAP.docNo] || '').trim();
+        if (type === 'ยืม' && docNo) {
+          existing.add(docNo);
+          const m = docNo.match(/^A(\d+)$/i);
+          if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+        }
+      });
+
+      let nextNum = maxNum + 1;
+      for (const row of rows) {
+        const type = String(row[FIELD_MAP.type] || '').trim();
+        const docNo = String(row[FIELD_MAP.docNo] || '').trim();
+        if (type === 'ยืม' && !docNo) {
+          let candidate = `A${String(nextNum).padStart(3, '0')}`;
+          while (existing.has(candidate)) {
+            nextNum++;
+            candidate = `A${String(nextNum).padStart(3, '0')}`;
+          }
+          await updateRow(row.id, { [FIELD_MAP.docNo]: candidate });
+          existing.add(candidate);
+          nextNum++;
+        }
+      }
+    }
+
+    async function nextAvailableDocNo() {
+      const rows = await fetchAllRows();
       return generateNextDocNo(rows);
     }
 
     function generateNextDocNo(rows) {
       let maxNum = 0;
-      for (const row of rows) {
-        if (String(row?.[FIELD.TYPE] || '').trim() !== 'ยืม') continue;
-        const docNo = String(row?.[FIELD.DOCNO] || '').trim();
+      rows.forEach(row => {
+        const type = String(row[FIELD_MAP.type] || '').trim();
+        const docNo = String(row[FIELD_MAP.docNo] || '').trim();
+        if (type !== 'ยืม' || !docNo) return;
         const m = docNo.match(/^A(\d+)$/i);
         if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
-      }
+      });
       return `A${String(maxNum + 1).padStart(3, '0')}`;
     }
+
+    function stripInternalFields(record) {
+      const copy = { ...record };
+      delete copy.rowId;
+      return copy;
+    }
+
+    function formatCell(value) {
+      if (value === null || value === undefined) return '';
+      if (value instanceof Date) return value.toLocaleString('th-TH');
+      return String(value);
+    }
+
+    function nowText(dateObj) {
+      const d = dateObj ? new Date(dateObj) : new Date();
+      return d.toLocaleString('th-TH', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+    }
+
+    function toNumber(v) {
+      if (typeof v === 'number') return isNaN(v) ? 0 : v;
+      const s = String(v || '').replace(/,/g, '').trim();
+      if (!s) return 0;
+      const n = Number(s);
+      return isNaN(n) ? 0 : n;
+    }
+
+    function formatCurrency(num) {
+      const n = Number(num || 0);
+      return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function escapeAttr(str) {
+      return String(str ?? '').replace(/"/g, '&quot;');
+    }
+
+    function fileToPayload(file) {
+      return new Promise((resolve, reject) => {
+        if (!file) return resolve(null);
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = String(reader.result || '');
+          const base64 = result.includes(',') ? result.split(',')[1] : '';
+          resolve({
+            name: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            base64
+          });
+        };
+        reader.onerror = () => reject(reader.error || new Error('อ่านไฟล์ไม่สำเร็จ'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function apiRequest(path, options = {}) {
+      const url = path.startsWith('http') ? path : `${BASE_URL}${path}`;
+      const headers = new Headers(options.headers || {});
+      headers.set('Authorization', `Token ${BASEROW_TOKEN}`);
+      if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json');
+      }
+      headers.set('Accept', 'application/json');
+
+      const res = await fetch(url, {
+        ...options,
+        headers
+      });
+
+      const contentType = res.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+      const data = isJson ? await res.json().catch(() => null) : await res.text();
+
+      if (!res.ok) {
+        const message = normalizeApiError(data) || `Baserow API error (${res.status})`;
+        throw new Error(message);
+      }
+
+      return data;
+    }
+
+    function normalizeApiError(data) {
+      if (!data) return '';
+      if (typeof data === 'string') return data;
+      if (typeof data.detail === 'string') return data.detail;
+      if (typeof data.error === 'string') return data.error;
+      if (Array.isArray(data)) return data.map(normalizeApiError).filter(Boolean).join(', ');
+      if (typeof data === 'object') {
+        const parts = [];
+        for (const [key, value] of Object.entries(data)) {
+          if (Array.isArray(value)) {
+            const inner = value.map(v => (typeof v === 'string' ? v : (v && typeof v.error === 'string' ? v.error : JSON.stringify(v)))).join(', ');
+            parts.push(`${key}: ${inner}`);
+          } else if (value && typeof value === 'object') {
+            parts.push(`${key}: ${normalizeApiError(value)}`);
+          } else if (value !== undefined && value !== null) {
+            parts.push(`${key}: ${String(value)}`);
+          }
+        }
+        return parts.filter(Boolean).join(' | ');
+      }
+      return String(data);
+    }
+
+    async function runServer(fnName, payload) {
+      const fn = window[fnName];
+      if (typeof fn !== 'function') throw new Error(`ไม่พบฟังก์ชัน ${fnName}`);
+      return payload === undefined ? fn() : fn(payload);
+    }
+
+    document.addEventListener('input', (e) => {
+      if (e.target === els.paymentInstallment) syncPaymentModalUI();
+      if (e.target === els.borrowAmount || e.target === els.borrowInterest || e.target === els.borrowInstallments) updateBorrowPreview();
+    });
+
+    document.addEventListener('change', (e) => {
+      if (e.target === els.payAllToggle) syncPaymentModalUI();
+    });
 
     window.addEventListener('load', init);
   </script>
 </body>
 </html>
+

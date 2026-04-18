@@ -1309,7 +1309,17 @@
         const data = await apiRequest(next, { method: 'GET' });
         const results = Array.isArray(data?.results) ? data.results : [];
         all.push(...results);
-        next = data?.next ? data.next.replace(/^http:\/\//i, 'https://') : null;
+        if (data?.next) {
+          try {
+            const parsed = new URL(data.next, 'https://api.baserow.io');
+            parsed.protocol = 'https:';
+            next = parsed.toString();
+          } catch(e) {
+            next = null;
+          }
+        } else {
+          next = null;
+        }
       }
       return all;
     }

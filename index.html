@@ -374,50 +374,28 @@
 
   
 <script>
-    const TOKEN = "viEsOBD2SCZ8oOIbehQSPnIZeQUzsRnT";
+    const BASEROW_TOKEN = 'viEsOBD2SCZ8oOIbehQSPnIZeQUzsRnT';
     const TABLE_ID = 936184;
-    const API = "https://api.baserow.io";
+    const BASE_URL = 'https://api.baserow.io';
 
     const FIELD_MAP = {
-      type: 'Type',
-      timestamp: 'Timestamp',
-      name: 'Name',
-      phone: 'Phone',
-      amount: 'Amount',
-      dueDate: 'DueDate',
-      installmentType: 'InstallmentType',
-      installments: 'Installments',
-      installmentAmount: 'InstallmentAmount',
-      receiveMethod: 'ReceiveMethod',
-      attachment: 'AttachmentUrl',
-      interest: 'Interest',
-      status: 'Status',
-      docNo: 'DocNo',
-      note: 'Note',
-      verificationStatus: 'Verify'
+      type: 'ต้องการ',
+      timestamp: 'วันที่ทำรายการ',
+      name: 'ชื่อ',
+      phone: 'เบอร์โทร',
+      amount: 'จำนวนเงิน',
+      dueDate: 'วันที่กำหนดชำระ',
+      installmentType: 'ผ่อน',
+      installments: 'จำนวนงวด',
+      installmentAmount: 'ต่อ งวด',
+      receiveMethod: 'วิธีรับเงิน',
+      attachment: 'เอกสาร',
+      interest: 'ดอกเบี้ย',
+      status: 'สถานะ',
+      docNo: 'เลขที่เอกสาร',
+      note: 'หมายเหตุ',
+      verificationStatus: 'ตรวจความถูกต้อง'
     };
-
-    const REQUIRED_FIELDS = [
-      'Type',
-      'Timestamp',
-      'Name',
-      'Phone',
-      'Amount',
-      'DueDate',
-      'InstallmentType',
-      'Installments',
-      'InstallmentAmount',
-      'ReceiveMethod',
-      'AttachmentUrl',
-      'Interest',
-      'Status',
-      'DocNo',
-      'Note',
-      'Verify'
-    ];
-
-    let resolvedTableInfo = null;
-    let tableResolvePromise = null;
 
     const state = {
       view: 'home',
@@ -1113,85 +1091,7 @@
       return String(data);
     }
 
-
-    function getFieldNames_(fields) {
-      if (!Array.isArray(fields)) return [];
-      return fields
-        .map((field) => String(field?.name || '').trim())
-        .filter(Boolean);
-    }
-
-    function fieldsMatchRequired_(fields) {
-      const names = getFieldNames_(fields);
-      if (names.length !== REQUIRED_FIELDS.length) return false;
-      return REQUIRED_FIELDS.every((name) => names.includes(name));
-    }
-
-    function extractTableId_(table) {
-      if (!table || typeof table !== 'object') return null;
-      const candidates = [table.id, table.table_id, table.tableId, table.tableID];
-      for (const candidate of candidates) {
-        const n = Number(candidate);
-        if (Number.isFinite(n) && n > 0) return n;
-      }
-      return null;
-    }
-
-    async function ensureTableReady() {
-      if (resolvedTableInfo?.id) return resolvedTableInfo.id;
-      if (tableResolvePromise) return tableResolvePromise;
-
-      tableResolvePromise = (async () => {
-        const primaryTry = await apiRequest(`/api/database/fields/table/${TABLE_ID}/`);
-        if (fieldsMatchRequired_(primaryTry)) {
-          resolvedTableInfo = { id: TABLE_ID, fields: primaryTry };
-          return TABLE_ID;
-        }
-
-        let tablesResponse;
-        try {
-          tablesResponse = await apiRequest('/api/database/tables/all-tables/');
-        } catch (err) {
-          throw new Error(
-            'ไม่สามารถยืนยัน Table ID ได้ และไม่สามารถอ่านรายการตารางทั้งหมดเพื่อค้นหาตารางที่ตรงกับชื่อฟิลด์ได้'
-          );
-        }
-
-        const tables = Array.isArray(tablesResponse)
-          ? tablesResponse
-          : (tablesResponse?.results || tablesResponse?.tables || []);
-
-        for (const table of tables) {
-          const id = extractTableId_(table);
-          if (!id) continue;
-          try {
-            const fields = await apiRequest(`/api/database/fields/table/${id}/`);
-            if (fieldsMatchRequired_(fields)) {
-              TABLE_ID = id;
-              resolvedTableInfo = { id, fields };
-              return id;
-            }
-          } catch (err) {
-            continue;
-          }
-        }
-
-        const tableNameList = tables
-          .map((t) => t?.name || t?.table_name || t?.tableName || `#${extractTableId_(t)}`)
-          .filter(Boolean)
-          .join(', ');
-
-        throw new Error(
-          `ไม่พบตารางที่มีฟิลด์ตรงทั้งหมด (${REQUIRED_FIELDS.join(', ')})` +
-          (tableNameList ? ` | ตารางที่มองเห็นได้: ${tableNameList}` : '')
-        );
-      })();
-
-      return tableResolvePromise;
-    }
-
     async function getAppData() {
-      await ensureTableReady();
       const rows = await fetchAllRows();
       await backfillMissingDocNos(rows);
 

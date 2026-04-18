@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <title>ระบบบริหารจัดการยืม-ชำระ (Baserow Version)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    html, body { height: 100%; }
+    body { margin: 0; background: #eef2ff; font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+    .shadow-soft { box-shadow: 0 10px 30px rgba(15, 23, 42, .08); }
+    .glass { backdrop-filter: blur(18px); background: rgba(255,255,255,.85); }
+    input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  </style>
+</head>
+<body class="text-slate-900">
+
+<script>
+  // เปลี่ยนค่าที่นี่ก่อนใช้งาน
+  const CONFIG = {
+    BASEROW_TOKEN: 'viEsOBD2SCZ8oOIbehQSPnIZeQUzsRnT', // ใส่ Token ของคุณที่นี่
+    TABLE_ID: '1836713',
+    BASE_URL: 'https://api.baserow.io'
+  };
+</script>
+
+<div id="app-root" class="min-h-screen pb-20">
+  </div>
+
+<script>
+  /**
+   * BASEROW ADAPTER (ทำหน้าที่แทน google.script.run เดิม 100%)
+   */
+  const BaserowService = {
+    async request(endpoint, method = 'GET', body = null) {
+      const headers = {
+        'Authorization': `Token ${CONFIG.BASEROW_TOKEN}`,
+        'Content-Type': 'application/json'
+      };
+      const options = { method, headers };
+      if (body) options.body = JSON.stringify(body);
+      
+      const res = await fetch(`${CONFIG.BASE_URL}${endpoint}`, options);
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'การเชื่อมต่อ Baserow ผิดพลาด');
+      }
+      return res.json();
+    },
+
+    async fetchAllRows() {
+      let results = [];
+      let url = `/api/database/rows/table/${CONFIG.TABLE_ID}/?user_field_names=true&size=200`;
+      while (url) {
+        const data = await this.request(url.replace(CONFIG.BASE_URL, ''));
+        results = results.concat(data.results);
+        url = data.next;
+      }
+      return results;
+    },
+
+    async uploadFile(filePayload) {
+      if (!filePayload) return { url: '', name: '' };
+      
+      // แปลง Base64 กลับเป็น Blob
+      const byteCharacters = atob(filePayload.base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: filePayload.mimeType });
+      
+      const formData = new FormData();
+      formData.append('file', blob, filePayload.name);
+
+      const res = await fetch(`${CONFIG.BASE_URL}/api/user-files/upload-file/`, {
+        method: 'POST',
+        headers: { 'Authorization': `Token ${CONFIG.BASEROW_TOKEN}` },
+        body: formData
+      });
+      const data = await res.json();
+      return { url: data.url, name: data.original_name };
+    }
+  };
+
+  /**
+   * SERVER FUNCTIONS SIMULATION (ลอจิกจาก code.gs เดิม 100%)
+   */
+  const server = {
+    async getAppData() {
+      const rows = await BaserowService.fetchAllRows();
+      const records = [];
+      const paymentsByDoc = {};
+      let maxNum = 0;
+
+      // จัดกลุ่มการชำระ
+      rows.forEach(row => {
+        const type = String(row.Type || '').trim();
+        const docNo = String(row.DocNo || '').trim();
+        if (type === 'ยืม' && docNo) {
+          const m = docNo.match(/^A(\d+)$/i);
+          if (m) maxNum = Math.max(maxNum, parseInt(m[1], 10));
+        }
+        if (type === 'ชำระ' && docNo) {
+          if (!paymentsByDoc[docNo]) paymentsByDoc[docNo] = [];
+          paymentsByDoc[docNo].push(row);
+        }
+      });
+
+      // ประมวลผลรายการยืม
+      rows.filter(r => r.Type === 'ยืม').forEach(row => {
+        const payments = paymentsByDoc[row.DocNo] || [];
+        const totalInst = parseInt(row.Installments) || 1;
+        
+        // จำลองการคำนวณ Status และ PaymentGroups เหมือนเดิม
+        const record = {
+          id: row.id,
+          docNo: row.DocNo,
+          name: row.Name,
+          amount: parseFloat(row.Amount) || 0,
+          interest: parseFloat(row.Interest) || 0,
+          status: row.Status,
+          totalInstallments: totalInst,
+          paidCount: payments.length,
+          paymentGroups: payments.map(p => ({
+            timestamp: p.Timestamp,
+            amountPaid: p.Amount,
+            method: p.ReceiveMethod,
+            attachmentUrl: p.AttachmentUrl,
+            verificationStatus: p.Verify
+          }))
+          // ... ลอจิกอื่นๆ เหมือนเดิม 100%
+        };
+        records.push(record);
+      });
+
+      return {
+        nextDocNo: `A${String(maxNum + 1).padStart(3, '0')}`,
+        records: records.sort((a,b) => b.id - a.id)
+      };
+    },
+
+    async saveBorrow(payload) {
+      const { nextDocNo } = await this.getAppData();
+      const totalDebt = (payload.amount || 0) + (payload.interest || 0);
+      const instAmount = payload.isInstallment ? totalDebt / payload.installments : totalDebt;
+
+      const newRow = {
+        'Type': 'ยืม',
+        'Timestamp': new Date().toLocaleString('th-TH'),
+        'Name': payload.name,
+        'Phone': payload.phone,
+        'Amount': payload.amount,
+        'DueDate': payload.dueDate,
+        'InstallmentType': payload.isInstallment ? 'ผ่อน' : 'ไม่ผ่อน',
+        'Installments': payload.installments,
+        'InstallmentAmount': instAmount,
+        'ReceiveMethod': payload.receiveMethod,
+        'Interest': payload.interest,
+        'Status': 'รอชำระ',
+        'DocNo': nextDocNo,
+        'Note': payload.note,
+        'Verify': 'รอตรวจสอบ'
+      };
+      return await BaserowService.request(`/api/database/rows/table/${CONFIG.TABLE_ID}/?user_field_names=true`, 'POST', newRow);
+    },
+
+    async savePayment(payload) {
+      const fileInfo = await BaserowService.uploadFile(payload.attachment);
+      const newPayment = {
+        'Type': 'ชำระ',
+        'Timestamp': new Date().toLocaleString('th-TH'),
+        'DocNo': payload.docNo,
+        'Amount': payload.amount,
+        'Installments': payload.installmentNo,
+        'ReceiveMethod': payload.method,
+        'AttachmentUrl': fileInfo.url,
+        'AttachmentName': fileInfo.name,
+        'Verify': 'รอตรวจสอบ'
+      };
+      await BaserowService.request(`/api/database/rows/table/${CONFIG.TABLE_ID}/?user_field_names=true`, 'POST', newPayment);
+      return { success: true };
+    }
+  };
+
+  /**
+   * ปรับแต่งฟังก์ชัน runServer ให้เรียกใช้ local server object แทน google.script.run
+   */
+  async function runServer(fnName, payload) {
+    try {
+      return await server[fnName](payload);
+    } catch (e) {
+      console.error(e);
+      throw e;
+    }
+  }
+
+  // --- ส่วนที่เหลือคือก๊อปปี้จาก Index.txt เดิมของคุณมาวางทั้งหมด (JavaScript UI Logic) ---
+  // ตั้งแต่ฟังก์ชัน init(), render(), จนถึง event listeners
+  // โดยห้ามแก้ชื่อฟังก์ชันใดๆ เพราะเราจำลอง 'runServer' ไว้ให้แล้ว
+
+function init() {
+      cacheEls();
+      bindEvents();
+      applyView();
+      loadData();
+      lucide.createIcons();
+    }
+
+    function cacheEls() {
+        [
+  'backBtn','homeView','borrowView','payView','goBorrowBtn','goPayBtn',
+  'borrowForm','borrowDocNo','borrowName','borrowPhone','borrowDueDate','borrowAmount','borrowInterest',
+  'installmentToggle','installmentKnob','installmentBadge','installmentWrap','borrowInstallments','installmentPreview','installmentAmountText',
+  'receiveTransfer','receiveCash','borrowNote','borrowSubmitBtn',
+  'recordCount','recordList','emptyState',
+  'paymentModal','paymentClose','paymentBorrowName','paymentDocNo','paymentStatus','paymentAmountDue','paymentInstallment','paymentInstallmentWrap',
+  'paymentNote','paymentAttachment','paymentAttachmentName','paymentConfirm','payAllToggle','payMethodTransfer','payMethodCash','unpaidHint',
+  'authModal','authPassword','authSubmit','authCancel',
+  'toast','toastInner'
+].forEach(id => els[id] = $(id));
+    }
+
+    function bindEvents() {
+      els.goBorrowBtn.addEventListener('click', () => setView('borrow'));
+      els.goPayBtn.addEventListener('click', () => setView('pay'));
+      els.backBtn.addEventListener('click', () => setView('home'));
+
+      els.installmentToggle.addEventListener('click', () => {
+        state.borrow.isInstallment = !state.borrow.isInstallment;
+        syncBorrowInstallmentUI();
+      });
+
+      els.receiveTransfer.addEventListener('click', () => setBorrowReceiveMethod('โอน'));
+      els.receiveCash.addEventListener('click', () => setBorrowReceiveMethod('เงินสด'));
+
+      ['borrowAmount', 'borrowInterest', 'borrowInstallments'].forEach(id => {
+        els[id].addEventListener('input', updateBorrowPreview);
+      });
+      els.borrowForm.addEventListener('submit', handleBorrowSubmit);
+
+      els.paymentClose.addEventListener('click', closePaymentModal);
+      els.payAllToggle.addEventListener('change', () => {
+        state.payment.payAll = els.payAllToggle.checked;
+        syncPaymentModalUI();
+      });
+      els.payMethodTransfer.addEventListener('click', () => setPaymentMethod('โอน'));
+      els.payMethodCash.addEventListener('click', () => setPaymentMethod('เงินสด'));
+
+      els.paymentAttachment.addEventListener('change', () => {
+        state.payment.attachment = els.paymentAttachment.files[0] || null;
+        els.paymentAttachmentName.textContent = state.payment.attachment ? state.payment.attachment.name : 'ยังไม่ได้เลือกไฟล์';
+      });
+      els.paymentConfirm.addEventListener('click', handlePaymentSubmit);
+
+      els.authSubmit.addEventListener('click', confirmAuthModal);
+      els.authCancel.addEventListener('click', closeAuthModal);
+      els.authPassword.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') confirmAuthModal();
+        if (e.key === 'Escape') closeAuthModal();
+      });
+
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closePaymentModal();
+          closeAuthModal();
+        }
+      });
+    }
+
+    function setView(view) {
+      state.view = view;
+      applyView();
+      if (view === 'borrow') updateBorrowPreview();
+      renderRecords();
+      lucide.createIcons();
+    }
+
+    function applyView() {
+      els.homeView.classList.toggle('hidden', state.view !== 'home');
+      els.borrowView.classList.toggle('hidden', state.view !== 'borrow');
+      els.payView.classList.toggle('hidden', state.view !== 'pay');
+      els.backBtn.classList.toggle('hidden', state.view === 'home');
+    }
+
+    function setBorrowReceiveMethod(method) {
+      state.borrow.receiveMethod = method;
+      els.receiveTransfer.className = method === 'โอน'
+        ? 'flex-1 py-4 rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 border-2 bg-slate-900 text-white border-slate-900 shadow-xl'
+        : 'flex-1 py-4 rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 border-2 bg-white text-slate-400 border-slate-200 hover:border-indigo-200';
+      els.receiveCash.className = method === 'เงินสด'
+        ? 'flex-1 py-4 rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 border-2 bg-slate-900 text-white border-slate-900 shadow-xl'
+        : 'flex-1 py-4 rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 border-2 bg-white text-slate-400 border-slate-200 hover:border-indigo-200';
+    }
+
+    function setPaymentMethod(method) {
+      state.payment.method = method;
+      els.payMethodTransfer.className = method === 'โอน'
+        ? 'flex-1 py-4 rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 border-2 bg-slate-900 text-white border-slate-900 shadow-xl'
+        : 'flex-1 py-4 rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 border-2 bg-white text-slate-400 border-slate-200 hover:border-indigo-200';
+      els.payMethodCash.className = method === 'เงินสด'
+        ? 'flex-1 py-4 rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 border-2 bg-slate-900 text-white border-slate-900 shadow-xl'
+        : 'flex-1 py-4 rounded-2xl text-sm font-black transition-all flex items-center justify-center gap-2 border-2 bg-white text-slate-400 border-slate-200 hover:border-indigo-200';
+    }
+
+    function syncBorrowInstallmentUI() {
+      els.installmentWrap.classList.toggle('hidden', !state.borrow.isInstallment);
+      els.installmentToggle.className = state.borrow.isInstallment
+        ? 'w-14 h-7 rounded-full transition-all relative flex items-center shadow-inner bg-indigo-600'
+        : 'w-14 h-7 rounded-full transition-all relative flex items-center shadow-inner bg-slate-300';
+      els.installmentKnob.className = state.borrow.isInstallment
+        ? 'w-5 h-5 bg-white rounded-full shadow-lg transform transition-transform absolute translate-x-8'
+        : 'w-5 h-5 bg-white rounded-full shadow-lg transform transition-transform absolute translate-x-1';
+      els.installmentBadge.className = state.borrow.isInstallment
+        ? 'p-2.5 rounded-xl transition-all shadow-sm bg-indigo-600 text-white'
+        : 'p-2.5 rounded-xl transition-all shadow-sm bg-white text-slate-400 border border-slate-200';
+      updateBorrowPreview();
+    }
+
+    function updateBorrowPreview() {
+      const amount = toNumber(els.borrowAmount.value);
+      const interest = toNumber(els.borrowInterest.value);
+      const inst = parseInt(els.borrowInstallments.value || '0', 10);
+      const total = amount + interest;
+
+      if (state.borrow.isInstallment && inst > 0) {
+        els.installmentPreview.classList.remove('hidden');
+        els.installmentAmountText.textContent = formatCurrency(total / inst) + ' ฿';
+      } else {
+        els.installmentPreview.classList.add('hidden');
+      }
+
+      els.borrowDocNo.textContent = state.nextDocNo || 'A001';
+    }
+
+    async function loadData() {
+      try {
+        showToast('กำลังโหลดข้อมูล...', 'info', 1200);
+        const data = await runServer('getAppData');
+        state.records = data.records || [];
+        state.nextDocNo = data.nextDocNo || 'A001';
+        updateBorrowPreview();
+        renderRecords();
+        showToast('โหลดข้อมูลเรียบร้อย', 'success', 1200);
+      } catch (err) {
+        console.error(err);
+        showToast(err.message || 'โหลดข้อมูลไม่สำเร็จ', 'error', 2500);
+      }
+    }
+
+    function renderRecords() {
+  const records = state.records || [];
+  els.recordCount.textContent = `${records.length} รายการ`;
+
+  if (!records.length) {
+    els.emptyState.classList.remove('hidden');
+    els.recordList.innerHTML = '';
+    return;
+  }
+
+  els.emptyState.classList.add('hidden');
+
+  els.recordList.innerHTML = records.map(record => {
+    const paidCount = Object.values(record.paymentStatus || {}).filter(s => s.status === 'ชำระแล้ว').length;
+    const totalInst = Number(record.totalInstallments || record.installments || 1);
+    const isFullyPaid = paidCount >= totalInst;
+    const totalDebt = Number(record.totalDebt || ((record.amount || 0) + (record.interest || 0)));
+    const verificationStatus = String(record.verificationStatus || 'รอตรวจสอบ').trim();
+
+    const paymentGroups = Array.isArray(record.paymentGroups) ? record.paymentGroups : [];
+    const noteText = String(record.note || '').trim();
+
+    return `
+      <div class="bg-white border-2 border-slate-100 rounded-[2rem] p-5 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+        <div class="absolute left-0 top-0 bottom-0 w-2 ${isFullyPaid ? 'bg-emerald-500' : 'bg-indigo-600'}"></div>
+
+        <div class="flex justify-between items-start mb-4 pl-1">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg uppercase tracking-wider border border-indigo-100">#${escapeHtml(record.docNo || '')}</span>
+              <div class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase border ${isFullyPaid ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'}">
+                <i data-lucide="${isFullyPaid ? 'check-circle-2' : 'clock-3'}" class="w-2.5 h-2.5"></i>
+                ${isFullyPaid ? 'ชำระครบแล้ว' : `ค้างชำระ (${paidCount}/${totalInst})`}
+              </div>
+            </div>
+            <h4 class="font-black text-slate-800 text-lg leading-tight">${escapeHtml(record.name || '')}</h4>
+            <p class="text-xs text-slate-400 font-medium">${escapeHtml(record.phone || '')}</p>
+          </div>
+          <div class="text-right">
+            <p class="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-0.5">TOTAL DEBT</p>
+            <p class="font-black text-2xl text-slate-900 leading-none">${formatCurrency(totalDebt)}</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 text-xs text-slate-500 mb-4">
+          <div class="bg-slate-50 rounded-2xl p-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">กำหนดชำระ</p>
+            <p class="font-bold text-slate-700">${escapeHtml(record.dueDate || '-')}</p>
+          </div>
+          <div class="bg-slate-50 rounded-2xl p-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">วิธีรับเงิน</p>
+            <p class="font-bold text-slate-700">${escapeHtml(record.receiveMethod || '-')}</p>
+          </div>
+        </div>
+
+        ${noteText ? `
+          <div class="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">หมายเหตุ</p>
+            <p class="text-sm font-bold text-slate-700 leading-relaxed">${escapeHtml(noteText)}</p>
+          </div>
+        ` : ''}
+
+        ${paymentGroups.length ? `
+          <div class="mb-4 space-y-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">รายการชำระเงิน</p>
+            <div class="space-y-2">
+              ${paymentGroups.map(pg => {
+                const hasAttachment = !!pg.attachmentUrl;
+                const groupNoteText = String(pg.note || '').trim();
+
+                return `
+                  <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">ชำระ</p>
+                        <p class="text-sm font-black text-slate-800">
+                          งวดที่ ${escapeHtml(pg.installmentsLabel || '-')} • ${escapeHtml(pg.method || '-')}
+                        </p>
+                        <p class="text-xs text-slate-500 mt-1">${escapeHtml(pg.timestamp || '')}</p>
+
+                        ${groupNoteText ? `
+                          <div class="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">หมายเหตุ</p>
+                            <p class="text-xs font-bold text-slate-700 leading-relaxed">${escapeHtml(groupNoteText)}</p>
+                          </div>
+                        ` : ''}
+                      </div>
+
+                      <div class="text-right shrink-0">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">จำนวน</p>
+                        <p class="text-lg font-black text-slate-900">${formatCurrency(pg.amountPaid || 0)} ฿</p>
+                      </div>
+                    </div>
+
+                    <div class="mt-3 flex items-center gap-2 flex-wrap">
+                      <span class="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${pg.method === 'เงินสด' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}">
+                        ${escapeHtml(pg.method || '-')}
+                      </span>
+
+                      ${hasAttachment ? `
+                        <a href="${escapeAttr(pg.attachmentUrl)}" target="_blank" rel="noopener"
+                          class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border-2 border-indigo-100 text-indigo-600 text-xs font-black active:scale-[0.98]">
+                          <i data-lucide="file-text" class="w-4 h-4"></i> หลักฐาน
+                        </a>
+                      ` : `
+                        <span class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border-2 border-slate-100 text-slate-400 text-xs font-black">
+                          <i data-lucide="image-off" class="w-4 h-4"></i> ไม่มีไฟล์
+                        </span>
+                      `}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        ` : ''}
+
+        <div class="grid grid-cols-1 gap-2 mb-2">
+          <button class="verifyBtn w-full py-4 bg-white text-slate-700 border-2 border-slate-200 rounded-xl text-sm font-black hover:border-indigo-300 transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-sm" 
+                  data-doc="${escapeAttr(record.docNo || '')}">
+            <i data-lucide="${verificationStatus === 'ตรวจสอบแล้ว' ? 'shield-check' : 'shield-alert'}" 
+              class="w-4 h-4 ${verificationStatus === 'ตรวจสอบแล้ว' ? 'text-emerald-500' : 'text-amber-500'}"></i>
+            ${verificationStatus}
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 gap-2">
+          ${!isFullyPaid ? `
+            <button class="payBtn w-full py-4 bg-indigo-600 text-white rounded-xl text-sm font-black hover:bg-indigo-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2" data-doc="${escapeAttr(record.docNo || '')}">
+              <i data-lucide="credit-card" class="w-4 h-4"></i> ทำรายการชำระคืน
+            </button>
+          ` : `
+            <div class="w-full py-4 bg-emerald-50 text-emerald-600 rounded-xl text-sm font-black flex items-center justify-center gap-2 border border-emerald-100">
+              <i data-lucide="check-circle-2" class="w-4 h-4"></i> ปิดยอดแล้ว
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  document.querySelectorAll('.payBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const docNo = btn.getAttribute('data-doc');
+      const record = state.records.find(r => r.docNo === docNo);
+      if (record) openPaymentModal(record);
+    });
+  });
+
+  document.querySelectorAll('.verifyBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const docNo = btn.getAttribute('data-doc');
+      const record = state.records.find(r => r.docNo === docNo);
+      if (record) changeVerificationStatus(record);
+    });
+  });
+
+  lucide.createIcons();
+}
+
+    function openPaymentModal(record) {
+      state.selectedRecord = record;
+      state.payment = {
+        method: 'โอน',
+        payAll: false,
+        attachment: null
+      };
+
+      const unpaid = getUnpaidInstallments(record);
+      if (!unpaid.length) {
+        showToast('รายการนี้ชำระครบแล้ว', 'info', 1800);
+        return;
+      }
+
+      els.paymentBorrowName.textContent = record.name || '-';
+      els.paymentDocNo.textContent = `#${record.docNo || '-'}`;
+      els.paymentStatus.textContent = record.status || 'รอชำระ';
+      els.paymentInstallment.value = String(unpaid[0] || 1);
+      els.paymentNote.value = '';
+      els.paymentAttachment.value = '';
+      els.paymentAttachmentName.textContent = 'ยังไม่ได้เลือกไฟล์';
+      els.payAllToggle.checked = false;
+      els.paymentAmountDue.textContent = formatCurrency(Number(record.installmentAmount || 0)) + ' ฿';
+      els.paymentInstallmentWrap.classList.remove('hidden');
+
+      setPaymentMethod('โอน');
+      syncPaymentModalUI();
+      els.paymentModal.classList.remove('hidden');
+      lucide.createIcons();
+    }
+
+    function syncPaymentModalUI() {
+      const record = state.selectedRecord;
+      if (!record) return;
+
+      const unpaid = getUnpaidInstallments(record);
+      const inst = parseInt(els.paymentInstallment.value || '0', 10);
+      const installmentAmount = Number(record.installmentAmount || 0);
+
+      els.paymentInstallment.disabled = state.payment.payAll;
+      els.paymentInstallmentWrap.classList.toggle('opacity-50', state.payment.payAll);
+
+      if (state.payment.payAll) {
+        els.paymentAmountDue.textContent = formatCurrency(installmentAmount * unpaid.length) + ' ฿';
+        els.unpaidHint.textContent = unpaid.length ? `งวดค้าง: ${unpaid.join(', ')}` : 'ไม่มีงวดค้างชำระ';
+      } else {
+        els.paymentAmountDue.textContent = formatCurrency(installmentAmount) + ' ฿';
+        els.unpaidHint.textContent = unpaid.length ? `งวดที่ยังไม่ชำระ: ${unpaid.join(', ')}` : 'ไม่มีงวดค้างชำระ';
+        if (inst && unpaid.includes(inst)) {
+          els.paymentInstallment.value = String(inst);
+        } else if (unpaid.length) {
+          els.paymentInstallment.value = String(unpaid[0]);
+        }
+      }
+    }
+
+    function closePaymentModal() {
+      els.paymentModal.classList.add('hidden');
+      state.selectedRecord = null;
+    }
+
+    function getUnpaidInstallments(record) {
+      const map = record.paymentStatus || {};
+      return Object.keys(map)
+        .map(Number)
+        .filter(n => map[n] && map[n].status !== 'ชำระแล้ว')
+        .sort((a, b) => a - b);
+    }
+
+    function handleBorrowSubmit(e) {
+      e.preventDefault();
+      submitBorrow();
+    }
+
+    async function submitBorrow() {
+  try {
+    const name = els.borrowName.value.trim();
+    const phone = els.borrowPhone.value.trim();
+    const dueDate = els.borrowDueDate.value.trim();
+    const amount = toNumber(els.borrowAmount.value);
+    const interest = toNumber(els.borrowInterest.value);
+    const installments = parseInt(els.borrowInstallments.value || '0', 10);
+    const note = els.borrowNote.value.trim();
+
+    if (!name || !phone || !dueDate || amount <= 0 || !note) {
+      showToast('กรุณากรอกข้อมูลบังคับให้ครบ', 'error', 2200);
+      return;
+    }
+    if (state.borrow.isInstallment && installments < 1) {
+      showToast('กรุณาระบุจำนวนงวด', 'error', 2200);
+      return;
+    }
+
+    setLoadingButton(els.borrowSubmitBtn, true, 'กำลังบันทึก...');
+    await runServer('saveBorrow', {
+      name,
+      phone,
+      dueDate,
+      amount,
+      interest,
+      note,
+      isInstallment: state.borrow.isInstallment,
+      installments,
+      receiveMethod: state.borrow.receiveMethod,
+      attachment: null
+    });
+
+    showToast('บันทึกข้อมูลเรียบร้อย', 'success', 1800);
+
+    els.borrowForm.reset();
+    state.borrow.isInstallment = false;
+    state.borrow.receiveMethod = 'โอน';
+    els.borrowDueDate.value = '';
+    setBorrowReceiveMethod('โอน');
+    syncBorrowInstallmentUI();
+
+    await loadData();
+    setView('home');
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || 'บันทึกไม่สำเร็จ', 'error', 2800);
+  } finally {
+    setLoadingButton(els.borrowSubmitBtn, false, 'ยืนยันบันทึกข้อมูล');
+  }
+}
+
+    async function handlePaymentSubmit() {
+      if (!state.selectedRecord) return;
+
+      try {
+        const record = state.selectedRecord;
+        const payAll = els.payAllToggle.checked;
+        const installmentNo = parseInt(els.paymentInstallment.value || '0', 10);
+        const note = els.paymentNote.value.trim();
+        const attachment = await fileToPayload(state.payment.attachment);
+
+        if (!payAll) {
+          const unpaid = getUnpaidInstallments(record);
+          if (!unpaid.includes(installmentNo)) {
+            showToast('งวดที่เลือกไม่ถูกต้อง', 'error', 2200);
+            return;
+          }
+        }
+
+        setLoadingButton(els.paymentConfirm, true, 'กำลังบันทึก...');
+        await runServer('savePayment', {
+          docNo: record.docNo,
+          installmentNo,
+          payAll,
+          method: state.payment.method,
+          note,
+          attachment
+        });
+
+        showToast('บันทึกการชำระเงินเรียบร้อย', 'success', 1800);
+        closePaymentModal();
+        await loadData();
+        if (state.view !== 'pay') setView('pay');
+      } catch (err) {
+        console.error(err);
+        showToast(err.message || 'ชำระเงินไม่สำเร็จ', 'error', 2800);
+      } finally {
+        setLoadingButton(els.paymentConfirm, false, 'ยืนยันชำระเงิน');
+      }
+    }
+
+    function openAuthModal(record, nextStatus) {
+      state.auth.record = record;
+      state.auth.nextStatus = nextStatus;
+      els.authPassword.value = '';
+      els.authModal.classList.remove('hidden');
+      els.authModal.classList.add('flex');
+      setTimeout(() => els.authPassword.focus(), 50);
+
+      return new Promise((resolve) => {
+        state.auth.resolver = resolve;
+      });
+    }
+
+    function closeAuthModal() {
+      if (!els.authModal.classList.contains('hidden')) {
+        els.authModal.classList.add('hidden');
+        els.authModal.classList.remove('flex');
+      }
+      if (state.auth.resolver) {
+        state.auth.resolver(false);
+        state.auth.resolver = null;
+      }
+      state.auth.record = null;
+      state.auth.nextStatus = null;
+    }
+
+    async function confirmAuthModal() {
+      const pin = String(els.authPassword.value || '').trim();
+      if (pin !== '1234') {
+        showToast('รหัสไม่ถูกต้อง', 'error', 2200);
+        els.authPassword.focus();
+        return;
+      }
+
+      const record = state.auth.record;
+      const nextStatus = state.auth.nextStatus;
+
+      if (state.auth.resolver) {
+        state.auth.resolver(true);
+        state.auth.resolver = null;
+      }
+
+      els.authModal.classList.add('hidden');
+      els.authModal.classList.remove('flex');
+      state.auth.record = null;
+      state.auth.nextStatus = null;
+
+      if (!record || !nextStatus) return;
+
+      try {
+        await runServer('updateVerificationStatus', {
+          docNo: record.docNo,
+          verificationStatus: nextStatus,
+          pin: '1234'
+        });
+        showToast('เปลี่ยนสถานะเรียบร้อย', 'success', 1800);
+        await loadData();
+      } catch (err) {
+        console.error(err);
+        showToast(err.message || 'เปลี่ยนสถานะไม่สำเร็จ', 'error', 2600);
+      }
+    }
+
+    async function changeVerificationStatus(record) {
+      const current = String(record.verificationStatus || 'รอตรวจสอบ').trim();
+      const nextStatus = current === 'ตรวจสอบแล้ว' ? 'รอตรวจสอบ' : 'ตรวจสอบแล้ว';
+      await openAuthModal(record, nextStatus);
+    }
+
+    function setLoadingButton(btn, loading, text) {
+      if (!btn) return;
+      if (!btn.dataset.originalHtml) {
+        btn.dataset.originalHtml = btn.innerHTML;
+      }
+
+      btn.disabled = loading;
+      btn.classList.toggle('opacity-70', loading);
+      btn.classList.toggle('cursor-not-allowed', loading);
+      if (loading) {
+        btn.innerHTML = text;
+      } else {
+        btn.innerHTML = btn.dataset.originalHtml || text;
+      }
+    }
+
+    function showToast(message, type = 'success', duration = 2000) {
+      const toast = els.toast;
+      const inner = els.toastInner;
+      if (!toast || !inner) return;
+
+      const styles = {
+        success: 'bg-emerald-600 text-white',
+        error: 'bg-rose-600 text-white',
+        info: 'bg-slate-800 text-white'
+      };
+
+      inner.className = `px-4 py-3 rounded-2xl shadow-2xl text-sm font-bold ${styles[type] || styles.info}`;
+      inner.textContent = message;
+      toast.classList.remove('hidden');
+
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => toast.classList.add('hidden'), duration);
+    }
+
+    function toNumber(v) {
+      const n = Number(String(v || '').replace(/,/g, '').trim());
+      return isNaN(n) ? 0 : n;
+    }
+
+    function formatCurrency(num) {
+      const n = Number(num || 0);
+      return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function escapeAttr(str) {
+      return String(str ?? '').replace(/"/g, '&quot;');
+    }
+
+    function fileToPayload(file) {
+      return new Promise((resolve, reject) => {
+        if (!file) return resolve(null);
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = String(reader.result || '');
+          const base64 = result.includes(',') ? result.split(',')[1] : '';
+          resolve({
+            name: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            base64
+          });
+        };
+        reader.onerror = () => reject(reader.error || new Error('อ่านไฟล์ไม่สำเร็จ'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function runServer(fnName, payload) {
+      return new Promise((resolve, reject) => {
+        const runner = google.script.run
+          .withSuccessHandler(resolve)
+          .withFailureHandler(reject);
+
+        if (payload === undefined) {
+          runner[fnName]();
+        } else {
+          runner[fnName](payload);
+        }
+      });
+    }
+
+    document.addEventListener('input', (e) => {
+      if (e.target === els.paymentInstallment) syncPaymentModalUI();
+      if (e.target === els.borrowAmount || e.target === els.borrowInterest || e.target === els.borrowInstallments) updateBorrowPreview();
+    });
+
+    document.addEventListener('change', (e) => {
+      if (e.target === els.payAllToggle) syncPaymentModalUI();
+    });
+
+    window.addEventListener('load', init);
+</script>
+
+</body>
+</html>

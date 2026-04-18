@@ -1043,7 +1043,7 @@
     }
 
     async function apiRequest(path, options = {}) {
-      const url = path.startsWith('http') ? path : `${BASE_URL}${path}`;
+      const url = path.startsWith('https') ? path : `${BASE_URL}${path}`;
       const headers = new Headers(options.headers || {});
       headers.set('Authorization', `Token ${BASEROW_TOKEN}`);
       if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
@@ -1642,7 +1642,7 @@
     }
 
     async function apiRequest(path, options = {}) {
-      const url = path.startsWith('http') ? path : `${BASE_URL}${path}`;
+      const url = path.startsWith('https') ? path : `${BASE_URL}${path}`;
       const headers = new Headers(options.headers || {});
       headers.set('Authorization', `Token ${BASEROW_TOKEN}`);
       if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {

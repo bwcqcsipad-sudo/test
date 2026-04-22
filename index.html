@@ -372,15 +372,12 @@
     <div id="toastInner" class="px-4 py-3 rounded-2xl shadow-2xl text-sm font-bold"></div>
   </div>
 
+  
 <script>
-    // ============================================================
-    // SUPABASE CONFIG — แก้ค่าด้านล่างให้ตรงกับโปรเจกต์ของคุณ
-    // ============================================================
-    const SUPABASE_URL  = 'https://pfobzathluoivoufkdwj.supabase.co';
-    const SUPABASE_ANON_KEY = 'sb_publishable_q3xJiQ7LRJGkVMVkKbxrsA_A6eFhTaC';
-    const TABLE_NAME    = 'Data';   // <<< เปลี่ยนเป็นชื่อ table ใน Supabase ของคุณ
-    const STORAGE_BUCKET = 'attachments';   // <<< เปลี่ยนเป็นชื่อ Storage Bucket (สร้างใน Supabase > Storage)
-    // ============================================================
+    const SUPABASE_URL = 'https://pfobzathluoivoufkdwj.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_q3xJiQ7LRJGkVMVkKbxrsA_A6eFhTaC';
+    const SUPABASE_TABLE = 'Date1';
+    const SUPABASE_BUCKET = 'Flieall';
 
     const FIELD_MAP = {
       type: 'type',
@@ -434,17 +431,17 @@
     }
 
     function cacheEls() {
-      [
-        'backBtn','homeView','borrowView','payView','goBorrowBtn','goPayBtn',
-        'borrowForm','borrowDocNo','borrowName','borrowPhone','borrowDueDate','borrowAmount','borrowInterest',
-        'installmentToggle','installmentKnob','installmentBadge','installmentWrap','borrowInstallments','installmentPreview','installmentAmountText',
-        'receiveTransfer','receiveCash','borrowNote','borrowSubmitBtn',
-        'recordCount','recordList','emptyState',
-        'paymentModal','paymentClose','paymentBorrowName','paymentDocNo','paymentStatus','paymentAmountDue','paymentInstallment','paymentInstallmentWrap',
-        'paymentNote','paymentAttachment','paymentAttachmentName','paymentConfirm','payAllToggle','payMethodTransfer','payMethodCash','unpaidHint',
-        'authModal','authPassword','authSubmit','authCancel',
-        'toast','toastInner'
-      ].forEach(id => els[id] = $(id));
+        [
+  'backBtn','homeView','borrowView','payView','goBorrowBtn','goPayBtn',
+  'borrowForm','borrowDocNo','borrowName','borrowPhone','borrowDueDate','borrowAmount','borrowInterest',
+  'installmentToggle','installmentKnob','installmentBadge','installmentWrap','borrowInstallments','installmentPreview','installmentAmountText',
+  'receiveTransfer','receiveCash','borrowNote','borrowSubmitBtn',
+  'recordCount','recordList','emptyState',
+  'paymentModal','paymentClose','paymentBorrowName','paymentDocNo','paymentStatus','paymentAmountDue','paymentInstallment','paymentInstallmentWrap',
+  'paymentNote','paymentAttachment','paymentAttachmentName','paymentConfirm','payAllToggle','payMethodTransfer','payMethodCash','unpaidHint',
+  'authModal','authPassword','authSubmit','authCancel',
+  'toast','toastInner'
+].forEach(id => els[id] = $(id));
     }
 
     function bindEvents() {
@@ -575,163 +572,172 @@
     }
 
     function renderRecords() {
-      const records = state.records || [];
-      els.recordCount.textContent = `${records.length} รายการ`;
+  const records = state.records || [];
+  els.recordCount.textContent = `${records.length} รายการ`;
 
-      if (!records.length) {
-        els.emptyState.classList.remove('hidden');
-        els.recordList.innerHTML = '';
-        return;
-      }
+  if (!records.length) {
+    els.emptyState.classList.remove('hidden');
+    els.recordList.innerHTML = '';
+    return;
+  }
 
-      els.emptyState.classList.add('hidden');
+  els.emptyState.classList.add('hidden');
 
-      els.recordList.innerHTML = records.map(record => {
-        const paidCount = Object.values(record.paymentStatus || {}).filter(s => s.status === 'ชำระแล้ว').length;
-        const totalInst = Number(record.totalInstallments || record.installments || 1);
-        const isFullyPaid = paidCount >= totalInst;
-        const totalDebt = Number(record.totalDebt || ((record.amount || 0) + (record.interest || 0)));
-        const verificationStatus = String(record.verificationStatus || 'รอตรวจสอบ').trim();
+  els.recordList.innerHTML = records.map(record => {
+    const paidCount = Object.values(record.paymentStatus || {}).filter(s => s.status === 'ชำระแล้ว').length;
+    const totalInst = Number(record.totalInstallments || record.installments || 1);
+    const isFullyPaid = paidCount >= totalInst;
+    const totalDebt = Number(record.totalDebt || ((record.amount || 0) + (record.interest || 0)));
+    const verificationStatus = String(record.verificationStatus || 'รอตรวจสอบ').trim();
 
-        const paymentGroups = Array.isArray(record.paymentGroups) ? record.paymentGroups : [];
-        const noteText = String(record.note || '').trim();
+    const paymentGroups = Array.isArray(record.paymentGroups) ? record.paymentGroups : [];
+    const noteText = String(record.note || '').trim();
 
-        return `
-          <div class="bg-white border-2 border-slate-100 rounded-[2rem] p-5 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
-            <div class="absolute left-0 top-0 bottom-0 w-2 ${isFullyPaid ? 'bg-emerald-500' : 'bg-indigo-600'}"></div>
+    return `
+      <div class="bg-white border-2 border-slate-100 rounded-[2rem] p-5 shadow-sm hover:shadow-md transition-all relative overflow-hidden group">
+        <div class="absolute left-0 top-0 bottom-0 w-2 ${isFullyPaid ? 'bg-emerald-500' : 'bg-indigo-600'}"></div>
 
-            <div class="flex justify-between items-start mb-4 pl-1">
-              <div class="space-y-1">
-                <div class="flex items-center gap-2 flex-wrap">
-                  <span class="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg uppercase tracking-wider border border-indigo-100">#${escapeHtml(record.docNo || '')}</span>
-                  <div class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase border ${isFullyPaid ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'}">
-                    <i data-lucide="${isFullyPaid ? 'check-circle-2' : 'clock-3'}" class="w-2.5 h-2.5"></i>
-                    ${isFullyPaid ? 'ชำระครบแล้ว' : `ค้างชำระ (${paidCount}/${totalInst})`}
-                  </div>
-                </div>
-                <h4 class="font-black text-slate-800 text-lg leading-tight">${escapeHtml(record.name || '')}</h4>
-                <p class="text-xs text-slate-400 font-medium">${escapeHtml(record.phone || '')}</p>
-              </div>
-              <div class="text-right">
-                <p class="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-0.5">TOTAL DEBT</p>
-                <p class="font-black text-2xl text-slate-900 leading-none">${formatCurrency(totalDebt)}</p>
+        <div class="flex justify-between items-start mb-4 pl-1">
+          <div class="space-y-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg uppercase tracking-wider border border-indigo-100">#${escapeHtml(record.docNo || '')}</span>
+              <div class="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase border ${isFullyPaid ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'}">
+                <i data-lucide="${isFullyPaid ? 'check-circle-2' : 'clock-3'}" class="w-2.5 h-2.5"></i>
+                ${isFullyPaid ? 'ชำระครบแล้ว' : `ค้างชำระ (${paidCount}/${totalInst})`}
               </div>
             </div>
+            <h4 class="font-black text-slate-800 text-lg leading-tight">${escapeHtml(record.name || '')}</h4>
+            <p class="text-xs text-slate-400 font-medium">${escapeHtml(record.phone || '')}</p>
+          </div>
+          <div class="text-right">
+            <p class="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-0.5">TOTAL DEBT</p>
+            <p class="font-black text-2xl text-slate-900 leading-none">${formatCurrency(totalDebt)}</p>
+          </div>
+        </div>
 
-            <div class="grid grid-cols-2 gap-3 text-xs text-slate-500 mb-4">
-              <div class="bg-slate-50 rounded-2xl p-3">
-                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">กำหนดชำระ</p>
-                <p class="font-bold text-slate-700">${escapeHtml(record.dueDate || '-')}</p>
-              </div>
-              <div class="bg-slate-50 rounded-2xl p-3">
-                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">วิธีรับเงิน</p>
-                <p class="font-bold text-slate-700">${escapeHtml(record.receiveMethod || '-')}</p>
-              </div>
-            </div>
+        <div class="grid grid-cols-2 gap-3 text-xs text-slate-500 mb-4">
+          <div class="bg-slate-50 rounded-2xl p-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">กำหนดชำระ</p>
+            <p class="font-bold text-slate-700">${escapeHtml(record.dueDate || '-')}</p>
+          </div>
+          <div class="bg-slate-50 rounded-2xl p-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">วิธีรับเงิน</p>
+            <p class="font-bold text-slate-700">${escapeHtml(record.receiveMethod || '-')}</p>
+          </div>
+        </div>
 
-            ${noteText ? `
-              <div class="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">หมายเหตุ</p>
-                <p class="text-sm font-bold text-slate-700 leading-relaxed">${escapeHtml(noteText)}</p>
-              </div>
-            ` : ''}
+        ${noteText ? `
+          <div class="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">หมายเหตุ</p>
+            <p class="text-sm font-bold text-slate-700 leading-relaxed">${escapeHtml(noteText)}</p>
+          </div>
+        ` : ''}
 
-            ${paymentGroups.length ? `
-              <div class="mb-4 space-y-3">
-                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">รายการชำระเงิน</p>
-                <div class="space-y-2">
-                  ${paymentGroups.map(pg => {
-                    const hasAttachment = !!pg.attachmentUrl;
-                    const groupNoteText = String(pg.note || '').trim();
-                    return `
-                      <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                        <div class="flex items-start justify-between gap-3">
-                          <div class="min-w-0">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">ชำระ</p>
-                            <p class="text-sm font-black text-slate-800">
-                              งวดที่ ${escapeHtml(pg.installmentsLabel || '-')} • ${escapeHtml(pg.method || '-')}
-                            </p>
-                            <p class="text-xs text-slate-500 mt-1">${escapeHtml(pg.timestamp || '')}</p>
-                            ${groupNoteText ? `
-                              <div class="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
-                                <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">หมายเหตุ</p>
-                                <p class="text-xs font-bold text-slate-700 leading-relaxed">${escapeHtml(groupNoteText)}</p>
-                              </div>
-                            ` : ''}
+        ${paymentGroups.length ? `
+          <div class="mb-4 space-y-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">รายการชำระเงิน</p>
+            <div class="space-y-2">
+              ${paymentGroups.map(pg => {
+                const hasAttachment = !!pg.attachmentUrl;
+                const groupNoteText = String(pg.note || '').trim();
+
+                return `
+                  <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div class="flex items-start justify-between gap-3">
+                      <div class="min-w-0">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">ชำระ</p>
+                        <p class="text-sm font-black text-slate-800">
+                          งวดที่ ${escapeHtml(pg.installmentsLabel || '-')} • ${escapeHtml(pg.method || '-')}
+                        </p>
+                        <p class="text-xs text-slate-500 mt-1">${escapeHtml(pg.timestamp || '')}</p>
+
+                        ${groupNoteText ? `
+                          <div class="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">หมายเหตุ</p>
+                            <p class="text-xs font-bold text-slate-700 leading-relaxed">${escapeHtml(groupNoteText)}</p>
                           </div>
-                          <div class="text-right shrink-0">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">จำนวน</p>
-                            <p class="text-lg font-black text-slate-900">${formatCurrency(pg.amountPaid || 0)} ฿</p>
-                          </div>
-                        </div>
-                        <div class="mt-3 flex items-center gap-2 flex-wrap">
-                          <span class="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${pg.method === 'เงินสด' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}">
-                            ${escapeHtml(pg.method || '-')}
-                          </span>
-                          ${hasAttachment ? `
-                            <a href="${escapeAttr(pg.attachmentUrl)}" target="_blank" rel="noopener"
-                              class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border-2 border-indigo-100 text-indigo-600 text-xs font-black active:scale-[0.98]">
-                              <i data-lucide="file-text" class="w-4 h-4"></i> หลักฐาน
-                            </a>
-                          ` : `
-                            <span class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border-2 border-slate-100 text-slate-400 text-xs font-black">
-                              <i data-lucide="image-off" class="w-4 h-4"></i> ไม่มีไฟล์
-                            </span>
-                          `}
-                        </div>
+                        ` : ''}
                       </div>
-                    `;
-                  }).join('')}
-                </div>
-              </div>
-            ` : ''}
 
-            <div class="grid grid-cols-1 gap-2 mb-2">
-              <button class="verifyBtn w-full py-4 bg-white text-slate-700 border-2 border-slate-200 rounded-xl text-sm font-black hover:border-indigo-300 transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-sm"
-                      data-doc="${escapeAttr(record.docNo || '')}">
-                <i data-lucide="${verificationStatus === 'ตรวจสอบแล้ว' ? 'shield-check' : 'shield-alert'}"
-                  class="w-4 h-4 ${verificationStatus === 'ตรวจสอบแล้ว' ? 'text-emerald-500' : 'text-amber-500'}"></i>
-                ${verificationStatus}
-              </button>
-            </div>
+                      <div class="text-right shrink-0">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">จำนวน</p>
+                        <p class="text-lg font-black text-slate-900">${formatCurrency(pg.amountPaid || 0)} ฿</p>
+                      </div>
+                    </div>
 
-            <div class="grid grid-cols-1 gap-2">
-              ${!isFullyPaid ? `
-                <button class="payBtn w-full py-4 bg-indigo-600 text-white rounded-xl text-sm font-black hover:bg-indigo-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2" data-doc="${escapeAttr(record.docNo || '')}">
-                  <i data-lucide="credit-card" class="w-4 h-4"></i> ทำรายการชำระคืน
-                </button>
-              ` : `
-                <div class="w-full py-4 bg-emerald-50 text-emerald-600 rounded-xl text-sm font-black flex items-center justify-center gap-2 border border-emerald-100">
-                  <i data-lucide="check-circle-2" class="w-4 h-4"></i> ปิดยอดแล้ว
-                </div>
-              `}
+                    <div class="mt-3 flex items-center gap-2 flex-wrap">
+                      <span class="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border ${pg.method === 'เงินสด' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'}">
+                        ${escapeHtml(pg.method || '-')}
+                      </span>
+
+                      ${hasAttachment ? `
+                        <a href="${escapeAttr(pg.attachmentUrl)}" target="_blank" rel="noopener"
+                          class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border-2 border-indigo-100 text-indigo-600 text-xs font-black active:scale-[0.98]">
+                          <i data-lucide="file-text" class="w-4 h-4"></i> หลักฐาน
+                        </a>
+                      ` : `
+                        <span class="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border-2 border-slate-100 text-slate-400 text-xs font-black">
+                          <i data-lucide="image-off" class="w-4 h-4"></i> ไม่มีไฟล์
+                        </span>
+                      `}
+                    </div>
+                  </div>
+                `;
+              }).join('')}
             </div>
           </div>
-        `;
-      }).join('');
+        ` : ''}
 
-      document.querySelectorAll('.payBtn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const docNo = btn.getAttribute('data-doc');
-          const record = state.records.find(r => r.docNo === docNo);
-          if (record) openPaymentModal(record);
-        });
-      });
+        <div class="grid grid-cols-1 gap-2 mb-2">
+          <button class="verifyBtn w-full py-4 bg-white text-slate-700 border-2 border-slate-200 rounded-xl text-sm font-black hover:border-indigo-300 transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-sm" 
+                  data-doc="${escapeAttr(record.docNo || '')}">
+            <i data-lucide="${verificationStatus === 'ตรวจสอบแล้ว' ? 'shield-check' : 'shield-alert'}" 
+              class="w-4 h-4 ${verificationStatus === 'ตรวจสอบแล้ว' ? 'text-emerald-500' : 'text-amber-500'}"></i>
+            ${verificationStatus}
+          </button>
+        </div>
 
-      document.querySelectorAll('.verifyBtn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const docNo = btn.getAttribute('data-doc');
-          const record = state.records.find(r => r.docNo === docNo);
-          if (record) changeVerificationStatus(record);
-        });
-      });
+        <div class="grid grid-cols-1 gap-2">
+          ${!isFullyPaid ? `
+            <button class="payBtn w-full py-4 bg-indigo-600 text-white rounded-xl text-sm font-black hover:bg-indigo-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2" data-doc="${escapeAttr(record.docNo || '')}">
+              <i data-lucide="credit-card" class="w-4 h-4"></i> ทำรายการชำระคืน
+            </button>
+          ` : `
+            <div class="w-full py-4 bg-emerald-50 text-emerald-600 rounded-xl text-sm font-black flex items-center justify-center gap-2 border border-emerald-100">
+              <i data-lucide="check-circle-2" class="w-4 h-4"></i> ปิดยอดแล้ว
+            </div>
+          `}
+        </div>
+      </div>
+    `;
+  }).join('');
 
-      lucide.createIcons();
-    }
+  document.querySelectorAll('.payBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const docNo = btn.getAttribute('data-doc');
+      const record = state.records.find(r => r.docNo === docNo);
+      if (record) openPaymentModal(record);
+    });
+  });
+
+  document.querySelectorAll('.verifyBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const docNo = btn.getAttribute('data-doc');
+      const record = state.records.find(r => r.docNo === docNo);
+      if (record) changeVerificationStatus(record);
+    });
+  });
+
+  lucide.createIcons();
+}
 
     function openPaymentModal(record) {
       state.selectedRecord = record;
-      state.payment = { method: 'โอน', payAll: false, attachment: null };
+      state.payment = {
+        method: 'โอน',
+        payAll: false,
+        attachment: null
+      };
 
       const unpaid = getUnpaidInstallments(record);
       if (!unpaid.length) {
@@ -800,52 +806,60 @@
     }
 
     async function submitBorrow() {
-      try {
-        const name = els.borrowName.value.trim();
-        const phone = els.borrowPhone.value.trim();
-        const dueDate = els.borrowDueDate.value.trim();
-        const amount = toNumber(els.borrowAmount.value);
-        const interest = toNumber(els.borrowInterest.value);
-        const installments = parseInt(els.borrowInstallments.value || '0', 10);
-        const note = els.borrowNote.value.trim();
+  try {
+    const name = els.borrowName.value.trim();
+    const phone = els.borrowPhone.value.trim();
+    const dueDate = els.borrowDueDate.value.trim();
+    const amount = toNumber(els.borrowAmount.value);
+    const interest = toNumber(els.borrowInterest.value);
+    const installments = parseInt(els.borrowInstallments.value || '0', 10);
+    const note = els.borrowNote.value.trim();
 
-        if (!name || !phone || !dueDate || amount <= 0 || !note) {
-          showToast('กรุณากรอกข้อมูลบังคับให้ครบ', 'error', 2200);
-          return;
-        }
-        if (state.borrow.isInstallment && installments < 1) {
-          showToast('กรุณาระบุจำนวนงวด', 'error', 2200);
-          return;
-        }
-
-        setLoadingButton(els.borrowSubmitBtn, true, 'กำลังบันทึก...');
-        await saveBorrow({
-          name, phone, dueDate, amount, interest, note,
-          isInstallment: state.borrow.isInstallment,
-          installments,
-          receiveMethod: state.borrow.receiveMethod,
-          attachment: null
-        });
-
-        showToast('บันทึกข้อมูลเรียบร้อย', 'success', 1800);
-        els.borrowForm.reset();
-        state.borrow.isInstallment = false;
-        state.borrow.receiveMethod = 'โอน';
-        els.borrowDueDate.value = '';
-        setBorrowReceiveMethod('โอน');
-        syncBorrowInstallmentUI();
-        await loadData();
-        setView('home');
-      } catch (err) {
-        console.error(err);
-        showToast(err.message || 'บันทึกไม่สำเร็จ', 'error', 2800);
-      } finally {
-        setLoadingButton(els.borrowSubmitBtn, false, 'ยืนยันบันทึกข้อมูล');
-      }
+    if (!name || !phone || !dueDate || amount <= 0 || !note) {
+      showToast('กรุณากรอกข้อมูลบังคับให้ครบ', 'error', 2200);
+      return;
     }
+    if (state.borrow.isInstallment && installments < 1) {
+      showToast('กรุณาระบุจำนวนงวด', 'error', 2200);
+      return;
+    }
+
+    setLoadingButton(els.borrowSubmitBtn, true, 'กำลังบันทึก...');
+    await saveBorrow({
+      name,
+      phone,
+      dueDate,
+      amount,
+      interest,
+      note,
+      isInstallment: state.borrow.isInstallment,
+      installments,
+      receiveMethod: state.borrow.receiveMethod,
+      attachment: null
+    });
+
+    showToast('บันทึกข้อมูลเรียบร้อย', 'success', 1800);
+
+    els.borrowForm.reset();
+    state.borrow.isInstallment = false;
+    state.borrow.receiveMethod = 'โอน';
+    els.borrowDueDate.value = '';
+    setBorrowReceiveMethod('โอน');
+    syncBorrowInstallmentUI();
+
+    await loadData();
+    setView('home');
+  } catch (err) {
+    console.error(err);
+    showToast(err.message || 'บันทึกไม่สำเร็จ', 'error', 2800);
+  } finally {
+    setLoadingButton(els.borrowSubmitBtn, false, 'ยืนยันบันทึกข้อมูล');
+  }
+}
 
     async function handlePaymentSubmit() {
       if (!state.selectedRecord) return;
+
       try {
         const record = state.selectedRecord;
         const payAll = els.payAllToggle.checked;
@@ -862,7 +876,15 @@
         }
 
         setLoadingButton(els.paymentConfirm, true, 'กำลังบันทึก...');
-        await savePayment({ docNo: record.docNo, installmentNo, payAll, method: state.payment.method, note, attachment });
+        await savePayment({
+          docNo: record.docNo,
+          installmentNo,
+          payAll,
+          method: state.payment.method,
+          note,
+          attachment
+        });
+
         showToast('บันทึกการชำระเงินเรียบร้อย', 'success', 1800);
         closePaymentModal();
         await loadData();
@@ -882,7 +904,10 @@
       els.authModal.classList.remove('hidden');
       els.authModal.classList.add('flex');
       setTimeout(() => els.authPassword.focus(), 50);
-      return new Promise((resolve) => { state.auth.resolver = resolve; });
+
+      return new Promise((resolve) => {
+        state.auth.resolver = resolve;
+      });
     }
 
     function closeAuthModal() {
@@ -920,8 +945,13 @@
       state.auth.nextStatus = null;
 
       if (!record || !nextStatus) return;
+
       try {
-        await updateVerificationStatus({ docNo: record.docNo, verificationStatus: nextStatus, pin: '1234' });
+        await updateVerificationStatus({
+          docNo: record.docNo,
+          verificationStatus: nextStatus,
+          pin: '1234'
+        });
         showToast('เปลี่ยนสถานะเรียบร้อย', 'success', 1800);
         await loadData();
       } catch (err) {
@@ -938,28 +968,134 @@
 
     function setLoadingButton(btn, loading, text) {
       if (!btn) return;
-      if (!btn.dataset.originalHtml) btn.dataset.originalHtml = btn.innerHTML;
+      if (!btn.dataset.originalHtml) {
+        btn.dataset.originalHtml = btn.innerHTML;
+      }
+
       btn.disabled = loading;
       btn.classList.toggle('opacity-70', loading);
       btn.classList.toggle('cursor-not-allowed', loading);
-      btn.innerHTML = loading ? text : (btn.dataset.originalHtml || text);
+      if (loading) {
+        btn.innerHTML = text;
+      } else {
+        btn.innerHTML = btn.dataset.originalHtml || text;
+      }
     }
 
     function showToast(message, type = 'success', duration = 2000) {
       const toast = els.toast;
       const inner = els.toastInner;
       if (!toast || !inner) return;
-      const styles = { success: 'bg-emerald-600 text-white', error: 'bg-rose-600 text-white', info: 'bg-slate-800 text-white' };
+
+      const styles = {
+        success: 'bg-emerald-600 text-white',
+        error: 'bg-rose-600 text-white',
+        info: 'bg-slate-800 text-white'
+      };
+
       inner.className = `px-4 py-3 rounded-2xl shadow-2xl text-sm font-bold ${styles[type] || styles.info}`;
       inner.textContent = message;
       toast.classList.remove('hidden');
+
       clearTimeout(window.__toastTimer);
       window.__toastTimer = setTimeout(() => toast.classList.add('hidden'), duration);
     }
 
-    // ============================================================
-    // BUSINESS LOGIC
-    // ============================================================
+    function toNumber(v) {
+      const n = Number(String(v || '').replace(/,/g, '').trim());
+      return isNaN(n) ? 0 : n;
+    }
+
+    function formatCurrency(num) {
+      const n = Number(num || 0);
+      return n.toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function escapeAttr(str) {
+      return String(str ?? '').replace(/"/g, '&quot;');
+    }
+
+    function fileToPayload(file) {
+      return new Promise((resolve, reject) => {
+        if (!file) return resolve(null);
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = String(reader.result || '');
+          const base64 = result.includes(',') ? result.split(',')[1] : '';
+          resolve({
+            name: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            base64
+          });
+        };
+        reader.onerror = () => reject(reader.error || new Error('อ่านไฟล์ไม่สำเร็จ'));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function apiRequest(path, options = {}) {
+      const url = path.startsWith('http') ? path : `${SUPABASE_URL}${path}`;
+      const headers = new Headers(options.headers || {});
+      headers.set('apikey', SUPABASE_KEY);
+      headers.set('Authorization', `Bearer ${SUPABASE_KEY}`);
+      if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json');
+      }
+      if (options.prefer) {
+        headers.set('Prefer', options.prefer);
+      }
+      headers.set('Accept', 'application/json');
+
+      const res = await fetch(url, {
+        ...options,
+        headers
+      });
+
+      const contentType = res.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+      const data = isJson ? await res.json().catch(() => null) : await res.text();
+
+      if (!res.ok) {
+        const message = normalizeApiError(data) || `Supabase API error (${res.status})`;
+        throw new Error(message);
+      }
+
+      return data;
+    }
+
+    function normalizeApiError(data) {
+      if (!data) return '';
+      if (typeof data === 'string') return data;
+      if (typeof data.detail === 'string') return data.detail;
+      if (typeof data.error === 'string') return data.error;
+      if (typeof data.message === 'string') return data.message;
+      if (Array.isArray(data)) return data.map(normalizeApiError).filter(Boolean).join(', ');
+      if (typeof data === 'object') {
+        const parts = [];
+        for (const [key, value] of Object.entries(data)) {
+          if (Array.isArray(value)) {
+            const inner = value.map(v => (typeof v === 'string' ? v : (v && typeof v.error === 'string' ? v.error : JSON.stringify(v)))).join(', ');
+            parts.push(`${key}: ${inner}`);
+          } else if (value && typeof value === 'object') {
+            parts.push(`${key}: ${normalizeApiError(value)}`);
+          } else if (value !== undefined && value !== null) {
+            parts.push(`${key}: ${String(value)}`);
+          }
+        }
+        return parts.filter(Boolean).join(' | ');
+      }
+      return String(data);
+    }
 
     async function getAppData() {
       const rows = await fetchAllRows();
@@ -986,7 +1122,11 @@
       });
 
       records.sort((a, b) => (b.rowId || 0) - (a.rowId || 0));
-      return { nextDocNo: generateNextDocNo(rows), records: records.map(stripInternalFields) };
+
+      return {
+        nextDocNo: generateNextDocNo(rows),
+        records: records.map(stripInternalFields)
+      };
     }
 
     async function saveBorrow(payload) {
@@ -1000,8 +1140,12 @@
       const isInstallment = !!payload?.isInstallment;
       const installments = isInstallment ? Math.max(1, parseInt(payload?.installments, 10) || 0) : 1;
 
-      if (!name || !phone || !dueDate || amount <= 0) throw new Error('กรุณากรอกข้อมูลบังคับให้ครบ');
-      if (isInstallment && installments < 1) throw new Error('กรุณาระบุจำนวนงวดมากกว่า 0');
+      if (!name || !phone || !dueDate || amount <= 0) {
+        throw new Error('กรุณากรอกข้อมูลบังคับให้ครบ');
+      }
+      if (isInstallment && installments < 1) {
+        throw new Error('กรุณาระบุจำนวนงวดมากกว่า 0');
+      }
 
       const totalDebt = amount + interest;
       const installmentAmount = isInstallment ? totalDebt / installments : totalDebt;
@@ -1028,9 +1172,8 @@
       };
 
       if (payload?.attachment?.base64) {
-        // Supabase Storage: returns public URL string
         const uploaded = await uploadAttachment(payload.attachment, `${docNo}_${payload.attachment.name || 'attachment'}`);
-        rowPayload[FIELD_MAP.attachment] = uploaded;
+        rowPayload[FIELD_MAP.attachment] = [uploaded];
       }
 
       await createRow(rowPayload);
@@ -1068,8 +1211,12 @@
           if (!paidSet.has(i)) targets.push(i);
         }
       } else {
-        if (!installmentNo || installmentNo < 1 || installmentNo > totalInstallments) throw new Error('งวดที่เลือกไม่ถูกต้อง');
-        if (paidSet.has(installmentNo)) throw new Error('งวดนี้ถูกชำระแล้ว');
+        if (!installmentNo || installmentNo < 1 || installmentNo > totalInstallments) {
+          throw new Error('งวดที่เลือกไม่ถูกต้อง');
+        }
+        if (paidSet.has(installmentNo)) {
+          throw new Error('งวดนี้ถูกชำระแล้ว');
+        }
         targets = [installmentNo];
       }
 
@@ -1078,10 +1225,7 @@
       const ts = nowText();
       const amountPerInst = toNumber(record.installmentAmount) || ((toNumber(record.amount) + toNumber(record.interest)) / totalInstallments);
       const verifyStatus = 'รอตรวจสอบ';
-      // Supabase Storage upload → URL string (or null)
-      const uploaded = payload?.attachment?.base64
-        ? await uploadAttachment(payload.attachment, `${docNo}_PAY_${targets.join('-')}_${payload.attachment.name || 'attachment'}`)
-        : null;
+      const uploaded = payload?.attachment?.base64 ? await uploadAttachment(payload.attachment, `${docNo}_PAY_${targets.join('-')}_${payload.attachment.name || 'attachment'}`) : null;
 
       for (const instNo of targets) {
         const paymentPayload = {
@@ -1100,15 +1244,12 @@
           [FIELD_MAP.note]: note,
           [FIELD_MAP.verificationStatus]: verifyStatus
         };
-        if (uploaded) paymentPayload[FIELD_MAP.attachment] = uploaded; // URL string
+        if (uploaded) paymentPayload[FIELD_MAP.attachment] = [uploaded];
         await createRow(paymentPayload);
       }
 
       const allRowsAfter = await fetchAllRows();
-      const updatedBorrow = allRowsAfter.find(row =>
-        String(row[FIELD_MAP.type] || '').trim() === 'ยืม' &&
-        String(row[FIELD_MAP.docNo] || '').trim() === docNo
-      );
+      const updatedBorrow = allRowsAfter.find(row => String(row[FIELD_MAP.type] || '').trim() === 'ยืม' && String(row[FIELD_MAP.docNo] || '').trim() === docNo);
       if (!updatedBorrow) throw new Error('ไม่พบรายการยืมหลังบันทึกข้อมูล');
 
       const refreshedPayments = allRowsAfter
@@ -1116,13 +1257,23 @@
         .map(rowToPaymentRecord_);
 
       const summary = buildPaymentSummary_(rowToBorrowRecord_(updatedBorrow), refreshedPayments);
-      const updateBorrowPayload = { [FIELD_MAP.status]: summary.status };
-      if (uploaded) updateBorrowPayload[FIELD_MAP.attachment] = uploaded; // URL string
+
+      const updateBorrowPayload = {
+        [FIELD_MAP.status]: summary.status
+      };
+      if (uploaded) {
+        updateBorrowPayload[FIELD_MAP.attachment] = [uploaded];
+      }
 
       await updateRow(updatedBorrow.id, updateBorrowPayload);
       await bulkUpdateVerificationStatus(allRowsAfter, docNo, verifyStatus);
 
-      return { success: true, status: summary.status, paidCount: summary.paidCount, totalInstallments: summary.totalInstallments };
+      return {
+        success: true,
+        status: summary.status,
+        paidCount: summary.paidCount,
+        totalInstallments: summary.totalInstallments
+      };
     }
 
     async function updateVerificationStatus(payload) {
@@ -1131,7 +1282,9 @@
       const pin = String(payload?.pin || '').trim();
 
       if (pin !== '1234') throw new Error('รหัสไม่ถูกต้อง');
-      if (!['รอตรวจสอบ', 'ตรวจสอบแล้ว'].includes(verificationStatus)) throw new Error('สถานะไม่ถูกต้อง');
+      if (!['รอตรวจสอบ', 'ตรวจสอบแล้ว'].includes(verificationStatus)) {
+        throw new Error('สถานะไม่ถูกต้อง');
+      }
 
       const rows = await fetchAllRows();
       await bulkUpdateVerificationStatus(rows, docNo, verificationStatus);
@@ -1141,139 +1294,77 @@
     async function bulkUpdateVerificationStatus(rows, docNo, status) {
       const target = String(docNo || '').trim();
       if (!target) return;
+
       const updates = rows.filter(row => {
         const type = String(row[FIELD_MAP.type] || '').trim();
         const rowDoc = String(row[FIELD_MAP.docNo] || '').trim();
         return rowDoc === target && (type === 'ยืม' || type === 'ชำระ');
       });
+
       for (const row of updates) {
-        await updateRow(row.id, { [FIELD_MAP.verificationStatus]: status });
+        await updateRow(row.id, {
+          [FIELD_MAP.verificationStatus]: status
+        });
       }
     }
 
-    // ============================================================
-    // SUPABASE API LAYER
-    // ============================================================
-
-    /**
-     * fetch ทุก row จาก Supabase (PostgREST)
-     * ใช้ Range pagination เพื่อรองรับข้อมูลจำนวนมาก
-     */
     async function fetchAllRows() {
       const all = [];
+      let offset = 0;
       const size = 1000;
-      let from = 0;
       while (true) {
-        const res = await fetch(
-          `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?select=*&order=id`,
-          {
-            method: 'GET',
-            headers: {
-              'apikey': SUPABASE_ANON_KEY,
-              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-              'Accept': 'application/json',
-              'Range': `${from}-${from + size - 1}`,
-              'Range-Unit': 'items'
-            }
-          }
-        );
-        if (!res.ok) {
-          const err = await res.json().catch(() => null);
-          throw new Error(normalizeApiError(err) || `Supabase error (${res.status})`);
-        }
-        const results = await res.json();
-        const arr = Array.isArray(results) ? results : [];
-        all.push(...arr);
-        if (arr.length < size) break;
-        from += size;
+        const data = await apiRequest(`/rest/v1/${SUPABASE_TABLE}?select=*&limit=${size}&offset=${offset}&order=id.asc`);
+        const results = Array.isArray(data) ? data : [];
+        all.push(...results);
+        if (results.length < size) break;
+        offset += size;
       }
       return all;
     }
 
-    /**
-     * INSERT row ใหม่
-     */
     async function createRow(payload) {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/${TABLE_NAME}`,
-        {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Prefer': 'return=representation'
-          },
-          body: JSON.stringify(payload)
-        }
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(normalizeApiError(err) || `Supabase insert error (${res.status})`);
-      }
-      return res.json().catch(() => null);
+      return apiRequest(`/rest/v1/${SUPABASE_TABLE}`, {
+        method: 'POST',
+        prefer: 'return=representation',
+        body: JSON.stringify(payload)
+      });
     }
 
-    /**
-     * PATCH (update) row ตาม id
-     */
     async function updateRow(rowId, payload) {
-      const res = await fetch(
-        `${SUPABASE_URL}/rest/v1/${TABLE_NAME}?id=eq.${rowId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Prefer': 'return=representation'
-          },
-          body: JSON.stringify(payload)
-        }
-      );
-      if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(normalizeApiError(err) || `Supabase update error (${res.status})`);
-      }
-      return res.json().catch(() => null);
+      return apiRequest(`/rest/v1/${SUPABASE_TABLE}?id=eq.${rowId}`, {
+        method: 'PATCH',
+        prefer: 'return=representation',
+        body: JSON.stringify(payload)
+      });
     }
 
-    /**
-     * อัปโหลดไฟล์ไปยัง Supabase Storage
-     * คืนค่า public URL (text) ที่จะเก็บในคอลัมน์ attachment
-     */
     async function uploadAttachment(fileObj, fileName) {
       const file = await base64ToFile(fileObj, fileName);
-      const safeName = sanitizeFileName(fileName || fileObj?.name || 'file') + '_' + Date.now();
+      const safeFileName = `${Date.now()}_${sanitizeFileName(file.name)}`;
 
-      const res = await fetch(
-        `${SUPABASE_URL}/storage/v1/object/${STORAGE_BUCKET}/${safeName}`,
-        {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': file.type || 'application/octet-stream',
-            'x-upsert': 'true'
-          },
-          body: file
-        }
-      );
+      const res = await fetch(`${SUPABASE_URL}/storage/v1/object/${SUPABASE_BUCKET}/${safeFileName}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_KEY}`,
+          'apikey': SUPABASE_KEY,
+          'Content-Type': file.type || 'application/octet-stream'
+        },
+        body: file
+      });
 
       if (!res.ok) {
-        const err = await res.json().catch(() => null);
-        throw new Error(err?.error || err?.message || 'อัปโหลดไฟล์ไม่สำเร็จ');
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'อัปโหลดไฟล์ไม่สำเร็จ');
       }
 
-      // คืนค่า public URL
-      return `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${encodeURIComponent(safeName)}`;
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/${SUPABASE_BUCKET}/${safeFileName}`;
+      return {
+        url: publicUrl,
+        original_name: sanitizeFileName(file.name),
+        name: sanitizeFileName(file.name)
+      };
     }
 
-    /**
-     * แปลง base64 fileObj → File object
-     */
     async function base64ToFile(fileObj, fileName) {
       const base64 = String(fileObj?.base64 || '');
       if (!base64) throw new Error('ไม่พบข้อมูลไฟล์');
@@ -1286,45 +1377,17 @@
     }
 
     function sanitizeFileName(name) {
-      return String(name || 'file').replace(/[\\\/:*?"<>|]/g, '_').trim();
+      return String(name || 'file')
+        .replace(/[\\\/:*?"<>|]/g, '_')
+        .trim();
     }
 
-    /**
-     * แยก URL ไฟล์จากคอลัมน์ attachment (text ใน Supabase)
-     * Supabase เก็บเป็น URL string ตรงๆ แทน array ของ Baserow
-     */
-    function extractAttachment(value) {
-      if (!value || typeof value !== 'string') return { name: '', url: '' };
-      // ตรวจว่าเป็น URL จริง
-      if (!value.startsWith('http')) return { name: '', url: '' };
-      const parts = value.split('/');
-      const rawName = decodeURIComponent(parts[parts.length - 1] || '');
-      // ตัด timestamp suffix ออก: filename_1234567890123.ext → filename.ext
-      const name = rawName.replace(/_\d{13}(\.\w+)?$/, '$1') || rawName || 'ดูไฟล์';
-      return { name, url: value };
+    function normalizeFileValue(value) {
+      if (!value) return null;
+      if (Array.isArray(value)) return value;
+      if (typeof value === 'object') return [value];
+      return null;
     }
-
-    function normalizeApiError(data) {
-      if (!data) return '';
-      if (typeof data === 'string') return data;
-      if (typeof data.message === 'string') return data.message;
-      if (typeof data.detail === 'string') return data.detail;
-      if (typeof data.error === 'string') return data.error;
-      if (typeof data.hint === 'string') return data.hint;
-      if (Array.isArray(data)) return data.map(normalizeApiError).filter(Boolean).join(', ');
-      if (typeof data === 'object') {
-        const parts = [];
-        for (const [key, value] of Object.entries(data)) {
-          if (value !== undefined && value !== null) parts.push(`${key}: ${String(value)}`);
-        }
-        return parts.filter(Boolean).join(' | ');
-      }
-      return String(data);
-    }
-
-    // ============================================================
-    // DATA TRANSFORM
-    // ============================================================
 
     function rowToBorrowRecord_(row) {
       return {
@@ -1368,21 +1431,37 @@
       };
     }
 
+    function extractAttachment(value) {
+      const files = normalizeFileValue(value);
+      const file = files && files.length ? files[0] : null;
+      if (!file) return { name: '', url: '' };
+      return {
+        name: String(file.original_name || file.name || ''),
+        url: String(file.url || '')
+      };
+    }
+
     function buildPaymentSummary_(record, payments) {
       const totalInstallments = Math.max(1, toNumber(record.installments) || 1);
       const paymentStatus = {};
+
       for (let i = 1; i <= totalInstallments; i++) {
         paymentStatus[i] = { status: 'รอชำระ', paidAt: null };
       }
+
       payments.forEach(p => {
         if (p.installmentNo >= 1 && p.installmentNo <= totalInstallments) {
-          paymentStatus[p.installmentNo] = { status: 'ชำระแล้ว', paidAt: p.timestamp };
+          paymentStatus[p.installmentNo] = {
+            status: 'ชำระแล้ว',
+            paidAt: p.timestamp
+          };
         }
       });
 
       const paidCount = Object.values(paymentStatus).filter(x => x.status === 'ชำระแล้ว').length;
       const isFullyPaid = paidCount >= totalInstallments;
       let derivedStatus = record.status || 'รอชำระ';
+
       if (isFullyPaid) derivedStatus = 'ปิดยอดแล้ว';
       else if (paidCount > 0) derivedStatus = 'ชำระบางส่วน';
 
@@ -1390,7 +1469,9 @@
       const paymentGroups = buildPaymentGroups_(payments);
 
       return {
-        paymentStatus, paidCount, totalInstallments,
+        paymentStatus,
+        paidCount,
+        totalInstallments,
         remainingCount: totalInstallments - paidCount,
         isFullyPaid,
         totalDebt: toNumber(record.amount) + toNumber(record.interest),
@@ -1440,8 +1521,12 @@
 
         const group = groupsMap[key];
         group.amountPaid += toNumber(p.amountPaid);
+
         const instNo = Math.max(1, parseInt(p.installmentNo, 10) || 1);
-        if (!group.installmentNos.includes(instNo)) group.installmentNos.push(instNo);
+        if (!group.installmentNos.includes(instNo)) {
+          group.installmentNos.push(instNo);
+        }
+
         if (!group._firstRowNumber || (p.rowId && p.rowId < group._firstRowNumber)) {
           group._firstRowNumber = p.rowId;
         }
@@ -1455,12 +1540,17 @@
           delete group._firstRowNumber;
           return group;
         })
-        .sort((a, b) => (a.installmentNos?.[0] || 0) - (b.installmentNos?.[0] || 0));
+        .sort((a, b) => {
+          const aNo = a.installmentNos?.[0] || 0;
+          const bNo = b.installmentNos?.[0] || 0;
+          return aNo - bNo;
+        });
     }
 
     async function backfillMissingDocNos(rows) {
       const existing = new Set();
       let maxNum = 0;
+
       rows.forEach(row => {
         const type = String(row[FIELD_MAP.type] || '').trim();
         const docNo = String(row[FIELD_MAP.docNo] || '').trim();
@@ -1477,7 +1567,10 @@
         const docNo = String(row[FIELD_MAP.docNo] || '').trim();
         if (type === 'ยืม' && !docNo) {
           let candidate = `A${String(nextNum).padStart(3, '0')}`;
-          while (existing.has(candidate)) { nextNum++; candidate = `A${String(nextNum).padStart(3, '0')}`; }
+          while (existing.has(candidate)) {
+            nextNum++;
+            candidate = `A${String(nextNum).padStart(3, '0')}`;
+          }
           await updateRow(row.id, { [FIELD_MAP.docNo]: candidate });
           existing.add(candidate);
           nextNum++;
@@ -1508,10 +1601,6 @@
       return copy;
     }
 
-    // ============================================================
-    // UTILITIES
-    // ============================================================
-
     function formatCell(value) {
       if (value === null || value === undefined) return '';
       if (value instanceof Date) return value.toLocaleString('th-TH');
@@ -1521,8 +1610,13 @@
     function nowText(dateObj) {
       const d = dateObj ? new Date(dateObj) : new Date();
       return d.toLocaleString('th-TH', {
-        day: '2-digit', month: '2-digit', year: 'numeric',
-        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
       });
     }
 
@@ -1555,15 +1649,80 @@
     function fileToPayload(file) {
       return new Promise((resolve, reject) => {
         if (!file) return resolve(null);
+
         const reader = new FileReader();
         reader.onload = () => {
           const result = String(reader.result || '');
           const base64 = result.includes(',') ? result.split(',')[1] : '';
-          resolve({ name: file.name, mimeType: file.type || 'application/octet-stream', base64 });
+          resolve({
+            name: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            base64
+          });
         };
         reader.onerror = () => reject(reader.error || new Error('อ่านไฟล์ไม่สำเร็จ'));
         reader.readAsDataURL(file);
       });
+    }
+
+    async function apiRequest(path, options = {}) {
+      const url = path.startsWith('http') ? path : `${SUPABASE_URL}${path}`;
+      const headers = new Headers(options.headers || {});
+      headers.set('apikey', SUPABASE_KEY);
+      headers.set('Authorization', `Bearer ${SUPABASE_KEY}`);
+      if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
+        headers.set('Content-Type', 'application/json');
+      }
+      if (options.prefer) {
+        headers.set('Prefer', options.prefer);
+      }
+      headers.set('Accept', 'application/json');
+
+      const res = await fetch(url, {
+        ...options,
+        headers
+      });
+
+      const contentType = res.headers.get('content-type') || '';
+      const isJson = contentType.includes('application/json');
+      const data = isJson ? await res.json().catch(() => null) : await res.text();
+
+      if (!res.ok) {
+        const message = normalizeApiError(data) || `Supabase API error (${res.status})`;
+        throw new Error(message);
+      }
+
+      return data;
+    }
+
+    function normalizeApiError(data) {
+      if (!data) return '';
+      if (typeof data === 'string') return data;
+      if (typeof data.detail === 'string') return data.detail;
+      if (typeof data.error === 'string') return data.error;
+      if (typeof data.message === 'string') return data.message;
+      if (Array.isArray(data)) return data.map(normalizeApiError).filter(Boolean).join(', ');
+      if (typeof data === 'object') {
+        const parts = [];
+        for (const [key, value] of Object.entries(data)) {
+          if (Array.isArray(value)) {
+            const inner = value.map(v => (typeof v === 'string' ? v : (v && typeof v.error === 'string' ? v.error : JSON.stringify(v)))).join(', ');
+            parts.push(`${key}: ${inner}`);
+          } else if (value && typeof value === 'object') {
+            parts.push(`${key}: ${normalizeApiError(value)}`);
+          } else if (value !== undefined && value !== null) {
+            parts.push(`${key}: ${String(value)}`);
+          }
+        }
+        return parts.filter(Boolean).join(' | ');
+      }
+      return String(data);
+    }
+
+    async function runServer(fnName, payload) {
+      const fn = window[fnName];
+      if (typeof fn !== 'function') throw new Error(`ไม่พบฟังก์ชัน ${fnName}`);
+      return payload === undefined ? fn() : fn(payload);
     }
 
     document.addEventListener('input', (e) => {
@@ -1576,6 +1735,6 @@
     });
 
     window.addEventListener('load', init);
-</script>
+  </script>
 </body>
 </html>
